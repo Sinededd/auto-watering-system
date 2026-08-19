@@ -55,6 +55,13 @@ public:
         };
     }
 
+    /// @brief Remove a handler for a specific packet structure
+    void removePacketHandler(PacketType type)
+    {
+        handlers.erase(type);
+        LOG_D("ESP_NOW_MANAGER", "Removed handler for packet type: %d", static_cast<int>(type));
+    }
+
     /// @brief Send any packet structure
     template <typename T>
     bool send(const uint8_t *macAddress, const T &packet)

@@ -20,6 +20,13 @@ public:
 #if (LOG_LEVEL > LOG_LEVEL_NONE)
         Serial.begin(baud);
         while (!Serial && millis() < 2000);
+        delay(500);
+#endif
+    }
+
+    static void flush() {
+#if (LOG_LEVEL > LOG_LEVEL_NONE)
+        Serial.flush();
 #endif
     }
 };

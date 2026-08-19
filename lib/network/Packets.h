@@ -6,8 +6,9 @@ inline constexpr uint8_t BROADCAST_MAC[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 enum class DeviceType : uint8_t {
     UNKNOWN         = 0,
-    SOIL_MOISTURE   = 1, // soil moisture
-    AIR_THP         = 2, // air temperature and humidity
+    HOST            = 1,
+    SOIL_MOISTURE   = 2, // soil moisture
+    AIR_THP         = 3, // air temperature and humidity
 };
 
 

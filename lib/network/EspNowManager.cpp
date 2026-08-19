@@ -77,6 +77,7 @@ void EspNowManager::handleReceive(const esp_now_recv_info_t *esp_now_info, const
     auto it = handlers.find(header->type);
     if (it != handlers.end())
     {
-        it->second(esp_now_info, data, len);
+        RawPacketHandler handlerCopy = it->second; 
+        handlerCopy(esp_now_info, data, len);
     }
 }
