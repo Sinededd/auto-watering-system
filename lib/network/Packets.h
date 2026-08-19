@@ -3,14 +3,30 @@
 
 inline constexpr uint8_t BROADCAST_MAC[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
-
-enum class DeviceType : uint8_t {
-    UNKNOWN         = 0,
-    HOST            = 1,
-    SOIL_MOISTURE   = 2, // soil moisture
-    AIR_THP         = 3, // air temperature and humidity
+enum class DeviceType : uint8_t
+{
+    UNKNOWN = 0,
+    HOST,
+    SOIL_MOISTURE, // soil moisture
+    AIR_THP        // air temperature and humidity
 };
 
+inline std::string deviceTypeToRussian(DeviceType type)
+{
+    switch (type)
+    {
+    case DeviceType::UNKNOWN:
+        return "Неизвестный";
+    case DeviceType::HOST:
+        return "Главный модуль";
+    case DeviceType::SOIL_MOISTURE:
+        return "Влажность почвы";
+    case DeviceType::AIR_THP:
+        return "Влаж. и тем. воздуха";
+    default:
+        return std::to_string(static_cast<int>(type));
+    }
+}
 
 enum class PacketType : uint8_t
 {

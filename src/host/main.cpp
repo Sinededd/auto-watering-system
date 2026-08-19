@@ -28,6 +28,7 @@
 #include "commands/LedCommand.h"
 #include "commands/ValveCommand.h"
 #include "commands/HelpCommand.h"
+#include "controllers/HostController.h"
 
 // PIN Settings
 const uint8_t LED_PIN = 2;
@@ -432,10 +433,12 @@ static const char *TAG = "MAIN";
 
 Led led(Config::Pins::LED_PIN, false);
 Valve valve(VALVE_PIN);
-EspNowManager network(WIFI_MODE_AP);
+EspNowManager netMgr(WIFI_MODE_AP);
 
 CommandRegistry cmdRegistry;
 CliAdapter myCli(cmdRegistry);
+
+HostController controller(netMgr);
 
 void setup()
 {
@@ -444,7 +447,8 @@ void setup()
 
     led.begin();
     valve.begin();
-    network.begin();
+    netMgr.begin();
+    controller.begin();
 
     cmdRegistry.registerCommand(std::make_unique<HelpCommand>(cmdRegistry));
     cmdRegistry.registerCommand(std::make_unique<LedCommand>(&led));
@@ -480,5 +484,6 @@ void loop()
 
     led.update();
     valve.update();
+    controller.update();
     myCli.update();
 }
