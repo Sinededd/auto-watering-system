@@ -23,7 +23,11 @@
 #include "Config.h"
 #include <Led.h>
 #include <EspNowManager.h>
-#include "cli/Cli.h"
+#include "commands/CommandRegistry.h"
+#include "adapters/CliAdapter.h"
+#include "commands/LedCommand.h"
+#include "commands/ValveCommand.h"
+#include "commands/HelpCommand.h"
 
 // PIN Settings
 const uint8_t LED_PIN = 2;
@@ -424,12 +428,14 @@ void initESP_NOW()
     }
 }
 
-static const char *TAG = "Main";
-CliManager cli;
+static const char *TAG = "MAIN";
 
 Led led(Config::Pins::LED_PIN, false);
 Valve valve(VALVE_PIN);
-EspNowManager network();
+EspNowManager network(WIFI_MODE_AP);
+
+CommandRegistry cmdRegistry;
+CliAdapter myCli(cmdRegistry);
 
 void setup()
 {
@@ -438,8 +444,15 @@ void setup()
 
     led.begin();
     valve.begin();
-    cli.setLed(&led);
-    cli.setValve(&valve);
+    network.begin();
+
+    cmdRegistry.registerCommand(std::make_unique<HelpCommand>(cmdRegistry));
+    cmdRegistry.registerCommand(std::make_unique<LedCommand>(&led));
+    cmdRegistry.registerCommand(std::make_unique<ValveCommand>(&valve));
+ 
+
+
+
     // if (!LittleFS.begin(true))
     // {
     //     LOG_E(TAG, "Ошибка LittleFS!");
@@ -467,5 +480,5 @@ void loop()
 
     led.update();
     valve.update();
-    cli.update();
+    myCli.update();
 }
