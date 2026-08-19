@@ -28,12 +28,10 @@ void CliManager::cmdLed(const char *arg1, const char *arg2) {
         led->turnOff();
     }
     else if (strcmp(arg1, "slow") == 0) {
-        int count = arg2 ? atoi(arg2) : 5;
-        led->slowBlinking(count);
+        arg2 ? led->slowBlinking(atoi(arg2)) : led->slowBlinking();
     }
     else if (strcmp(arg1, "fast") == 0) {
-        int count = arg2 ? atoi(arg2) : 5;
-        led->fastBlinking(count);
+        arg2 ? led->fastBlinking(atoi(arg2)) : led->fastBlinking();
     }
     else {
         Serial.printf("Unknown LED parameter: %s\n", arg1);

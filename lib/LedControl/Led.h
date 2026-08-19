@@ -6,8 +6,10 @@ private:
     uint8_t pin;
     bool active = false;
     bool activeLow;
+
+    bool isBlinking = false;
     bool isSlowBlinking = false;
-    int blinkCount = 0;
+    uint32_t blinkCount = 0;
     unsigned long lastBlinkTime = 0;
 
     /// @brief Sets state of the LED directly without affecting the blinking state.
@@ -29,7 +31,6 @@ public:
 
     bool isActive() const { return active; }
 
-    void slowBlinking(int times = 5);
-
-    void fastBlinking(int times = 5);
+    void fastBlinking(unsigned int times = 0);
+    void slowBlinking(unsigned int times = 0);
 };

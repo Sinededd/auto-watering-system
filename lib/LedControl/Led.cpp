@@ -13,12 +13,12 @@ void Led::setRawState(bool state) {
 }
 
 void Led::turnOn() {
-    blinkCount = 0;
+    isBlinking = 0;
     setRawState(true);
 }
 
 void Led::turnOff() {
-    blinkCount = 0;
+    isBlinking = 0;
     setRawState(false);
 }
 
@@ -26,27 +26,39 @@ void Led::toggle() {
     setRawState(!active);
 }
 
-void Led::slowBlinking(int times) {
+void Led::slowBlinking(unsigned int times) {
     isSlowBlinking = true;
+    isBlinking = true;
     blinkCount = times * 2;
-    lastBlinkTime = millis() - 1000;
+    lastBlinkTime = millis();
+    setRawState(true);
+    if (blinkCount > 0) blinkCount--;
 }
 
-void Led::fastBlinking(int times) {
+void Led::fastBlinking(unsigned int times) {
     isSlowBlinking = false;
-    blinkCount = times * 2;
-    lastBlinkTime = millis() - 200;
+    isBlinking = true;
+    blinkCount = times * 2; 
+    lastBlinkTime = millis();
+    setRawState(true);
+    if (blinkCount > 0) blinkCount--;
 }
 
 void Led::update() {
-    if (blinkCount > 0) {
-        unsigned long currentTime = millis();
-        uint32_t interval = isSlowBlinking ? 1000 : 200;
+    if (!isBlinking) return;
 
-        if (currentTime - lastBlinkTime >= interval) {
-            lastBlinkTime = currentTime;
-            toggle();
+    unsigned long currentTime = millis();
+    uint32_t interval = isSlowBlinking ? 1000 : 200;
+
+    if (currentTime - lastBlinkTime >= interval) {
+        lastBlinkTime = currentTime;
+        toggle();
+
+        if (blinkCount > 0) {
             blinkCount--;
+            if (blinkCount == 0) {
+                turnOff();
+            }
         }
     }
 }
