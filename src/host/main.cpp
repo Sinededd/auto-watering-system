@@ -18,11 +18,11 @@
 #include <ArduinoJson.h>
 #include "storage.h"
 #include "web_server.h"
-#include "../common/types.h"
+#include "common/types.h"
 #include "Logger.h"
 #include "Config.h"
 #include <Led.h>
-#include <common/network/EspNowManager.h>
+#include <EspNowManager.h>
 #include "cli/Cli.h"
 
 // PIN Settings

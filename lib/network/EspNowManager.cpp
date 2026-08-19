@@ -1,5 +1,4 @@
 #include "EspNowManager.h"
-#include <Logger.h>
 #include <WiFiType.h>
 #include <WiFi.h>
 

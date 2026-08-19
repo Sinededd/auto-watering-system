@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 
-constexpr uint8_t BROADCAST_MAC[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+inline constexpr uint8_t BROADCAST_MAC[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 
 enum class DeviceType : uint8_t {
@@ -26,6 +26,7 @@ struct __attribute__((packed)) PacketHeader
 struct __attribute__((packed)) PairRequestPacket
 {
     PacketHeader header = {PacketType::PAIR_REQUEST};
+    uint8_t deviceMac[6];
     DeviceType deviceType;
 };
 
