@@ -32,6 +32,9 @@ enum class PacketType : uint8_t
 {
     UNKNOWN = 0,
     PAIR_REQUEST,
+    PAIR_ACCEPT,
+    SETTINGS_REPORT,
+    START_WORK_MODE,
     HELLO
 };
 
@@ -45,6 +48,23 @@ struct __attribute__((packed)) PairRequestPacket
     PacketHeader header = {PacketType::PAIR_REQUEST};
     uint8_t deviceMac[6];
     DeviceType deviceType;
+};
+
+struct __attribute__((packed)) PairAcceptPacket
+{
+    PacketHeader header = {PacketType::PAIR_ACCEPT};
+};
+
+struct __attribute__((packed)) SettingsReportPacket
+{
+    PacketHeader header = {PacketType::SETTINGS_REPORT};
+    uint16_t reportIntervalSec;
+};
+
+struct __attribute__((packed)) StartWorkModePacket
+{
+    PacketHeader header = {PacketType::START_WORK_MODE};
+    uint32_t timestamp;
 };
 
 struct __attribute__((packed)) HelloPacket

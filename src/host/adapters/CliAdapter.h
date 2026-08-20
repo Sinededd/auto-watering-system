@@ -58,6 +58,12 @@ public:
                       payload["mac"].as<const char*>());
     }
 
+    void onDeviceUpdate(const JsonVariantConst& payload) {
+        Serial.printf("\n[CLI EVENT] Изменился статус устройства: %s (Статус: %d)\n> ", 
+                    payload["mac"].as<const char*>(),
+                    payload["status"].as<uint8_t>());
+    }
+
     void update() {
         while (Serial.available() > 0) {
             char c = Serial.read();

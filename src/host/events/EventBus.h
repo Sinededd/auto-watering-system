@@ -8,8 +8,8 @@
 
 enum class EventType {
     DEVICE_DISCOVERED,
-    DEVICE_LOST,
-    VALVE_CHANGED
+    DEVICE_UPDATED,
+    DEVICE_LOST
 };
 
 class EventBus {

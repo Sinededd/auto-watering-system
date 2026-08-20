@@ -13,18 +13,34 @@ private:
     using ListType = DeviceListStorage<32>;
 
     StorageManager &storage;
+    ListType cache;
+    bool isLoaded = false;
+
+    void ensureLoaded()
+    {
+        if (!isLoaded)
+        {
+            cache = storage.load<ListType>(STORAGE_KEY).value_or(ListType{});
+            isLoaded = true;
+        }
+    }
 
 public:
     explicit DeviceRegistry(StorageManager &storageMgr) : storage(storageMgr) {}
 
+    void begin()
+    {
+        ensureLoaded();
+    }
+
     bool save(const Device &device)
     {
-        ListType listData = storage.load<ListType>(STORAGE_KEY).value_or(ListType{});
+        ensureLoaded();
 
         int foundIndex = -1;
-        for (uint8_t i = 0; i < listData.count; ++i)
+        for (uint8_t i = 0; i < cache.count; ++i)
         {
-            if (memcmp(listData.items[i].header.mac, device.header.mac, 6) == 0)
+            if (memcmp(cache.items[i].header.mac, device.header.mac, 6) == 0)
             {
                 foundIndex = i;
                 break;
@@ -33,42 +49,73 @@ public:
 
         if (foundIndex >= 0)
         {
-            listData.items[foundIndex] = device;
+            cache.items[foundIndex] = device;
         }
         else
         {
-            if (listData.count >= 32)
+            if (cache.count >= 32)
             {
                 return false;
             }
-            listData.items[listData.count] = device;
-            listData.count++;
+            cache.items[cache.count] = device;
+            cache.count++;
         }
 
-        return storage.save(STORAGE_KEY, listData);
+        return storage.save(STORAGE_KEY, cache);
     }
 
     std::optional<Device> getByMac(const uint8_t *mac)
     {
-        std::optional<ListType> listData = storage.load<ListType>(STORAGE_KEY);
-        if (!listData.has_value())
-        {
-            return std::nullopt;
-        }
+        ensureLoaded();
 
-        for (uint8_t i = 0; i < listData->count; ++i)
+        for (uint8_t i = 0; i < cache.count; ++i)
         {
-            if (memcmp(listData->items[i].header.mac, mac, 6) == 0)
+            if (memcmp(cache.items[i].header.mac, mac, 6) == 0)
             {
-                return listData->items[i];
+                return cache.items[i];
             }
         }
 
         return std::nullopt;
     }
 
+    bool remove(const uint8_t *mac)
+    {
+        ensureLoaded();
+
+        if (cache.count == 0)
+        {
+            return false;
+        }
+
+        int foundIndex = -1;
+        for (uint8_t i = 0; i < cache.count; ++i)
+        {
+            if (memcmp(cache.items[i].header.mac, mac, 6) == 0)
+            {
+                foundIndex = i;
+                break;
+            }
+        }
+
+        if (foundIndex == -1)
+        {
+            return false;
+        }
+
+        for (uint8_t i = foundIndex; i < cache.count - 1; ++i)
+        {
+            cache.items[i] = cache.items[i + 1];
+        }
+
+        cache.count--;
+
+        return storage.save(STORAGE_KEY, cache);
+    }
+
     std::optional<ListType> getAll()
     {
-        return storage.load<ListType>(STORAGE_KEY);
+        ensureLoaded();
+        return cache;
     }
 };

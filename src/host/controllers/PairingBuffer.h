@@ -4,75 +4,96 @@
 #include <Logger.h>
 #include <Converter.h>
 #include "host/events/EventBus.h"
+#include "host/models/Device.h"
 
-struct DiscoveredDevice {
-    uint8_t mac[6];
-    DeviceType type;
+struct DiscoveredDevice
+{
+    Device device;
     uint32_t lastSeenMs;
 };
 
-class PairingBuffer {
+class PairingBuffer
+{
 private:
-static constexpr const char *TAG = "PairingBuffer";
+    static constexpr const char *TAG = "PairingBuffer";
     std::vector<DiscoveredDevice> queue;
     const uint32_t TTL_MS = 10000;
-    EventBus& eventBus;
+    EventBus &eventBus;
+    DeviceRegistry &registry;
 
 public:
-    explicit PairingBuffer(EventBus& bus) : eventBus(bus) {}
+    explicit PairingBuffer(EventBus &bus, DeviceRegistry &registry) : eventBus(bus), registry(registry)  {}
 
-    void onPairRequest(const uint8_t* mac, DeviceType type) {
+    void onPairRequest(const uint8_t *mac, DeviceType type)
+    {
+        if (registry.getByMac(mac).has_value())
+        {
+            return;
+        }
+
         uint32_t now = millis();
 
-        for (auto& dev : queue) {
-            if (memcmp(dev.mac, mac, 6) == 0) {
-                dev.lastSeenMs = now;
+        for (auto &item : queue)
+        {
+            if (memcmp(item.device.header.mac, mac, 6) == 0)
+            {
+                item.lastSeenMs = now;
                 return;
             }
         }
 
-        DiscoveredDevice newDev;
-        memcpy(newDev.mac, mac, 6);
-        newDev.type = type;
-        newDev.lastSeenMs = now;
-        
-        queue.push_back(newDev);
-        LOG_I(TAG, "New device found nearby: %s (%s)",  macToString(newDev.mac).c_str(), deviceTypeToRussian(newDev.type). c_str());
+        DiscoveredDevice item;
+        memcpy(item.device.header.mac, mac, 6);
+        item.device.header.type = type;
+        item.device.header.status = DeviceStatus::UNPAIRED;
+        item.device.settings.isValid = false;
+        item.lastSeenMs = now;
 
-        JsonDocument doc;
-        doc["mac"] = macToString(newDev.mac);
-        doc["type"] = static_cast<int>(newDev.type);
+        queue.push_back(item);
+        LOG_I(TAG, "New device found nearby: %s (%s)",
+              macToString(item.device.header.mac).c_str(),
+              deviceTypeToRussian(item.device.header.type).c_str());
+
+        JsonDocument doc = deviceToJson(item.device);
         eventBus.publish(EventType::DEVICE_DISCOVERED, doc.as<JsonVariantConst>());
     }
 
-    void update() {
+    void update()
+    {
         uint32_t now = millis();
-        
-        for (auto it = queue.begin(); it != queue.end(); ) {
-            if (now - it->lastSeenMs > TTL_MS) {
-                LOG_I(TAG, "Device out of reach: %s", macToString(it->mac).c_str());
 
-                JsonDocument doc;
-                doc["mac"] = macToString(it->mac);
+        for (auto it = queue.begin(); it != queue.end();)
+        {
+            if (now - it->lastSeenMs > TTL_MS)
+            {
+                LOG_I(TAG, "Device out of reach: %s", macToString(it->device.header.mac).c_str());
+
+                JsonDocument doc = deviceToJson(it->device);
                 eventBus.publish(EventType::DEVICE_LOST, doc.as<JsonVariantConst>());
 
                 it = queue.erase(it);
-            } else {
+            }
+            else
+            {
                 ++it;
             }
         }
     }
 
-    void remove(const uint8_t* mac) {
-        for (auto it = queue.begin(); it != queue.end(); ++it) {
-            if (memcmp(it->mac, mac, 6) == 0) {
+    void remove(const uint8_t *mac)
+    {
+        for (auto it = queue.begin(); it != queue.end(); ++it)
+        {
+            if (memcmp(it->device.header.mac, mac, 6) == 0)
+            {
                 queue.erase(it);
                 break;
             }
         }
     }
 
-    const std::vector<DiscoveredDevice>& getList() const {
+    const std::vector<DiscoveredDevice> &getList() const
+    {
         return queue;
     }
 };

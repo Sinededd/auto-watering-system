@@ -29,10 +29,11 @@ CliAdapter myCli(cmdRegistry);
 EventBus eventBus;
 
 StorageManager storage;
-PairingBuffer pairingBuffer(eventBus);
 DeviceRegistry deviceRegistry(storage);
+PairingBuffer pairingBuffer(eventBus, deviceRegistry);
 
 HostController controller(netMgr, eventBus, pairingBuffer);
+DeviceController deviceController(deviceRegistry, pairingBuffer, netMgr, eventBus);
 
 void setup()
 {
@@ -47,11 +48,12 @@ void setup()
     server.begin();
 
     controller.begin();
+    deviceController.begin();
 
     cmdRegistry.registerCommand(std::make_unique<HelpCommand>(cmdRegistry));
     cmdRegistry.registerCommand(std::make_unique<LedCommand>(&led));
     cmdRegistry.registerCommand(std::make_unique<ValveCommand>(&valve));
-    cmdRegistry.registerCommand(std::make_unique<DeviceCommand>(deviceRegistry, pairingBuffer));
+    cmdRegistry.registerCommand(std::make_unique<DeviceCommand>(deviceController, deviceRegistry, pairingBuffer));
  
     eventBus.subscribe(EventType::DEVICE_DISCOVERED, [](const JsonVariantConst& payload) {
         myCli.onDeviceDiscovered(payload);
@@ -59,6 +61,10 @@ void setup()
 
     eventBus.subscribe(EventType::DEVICE_LOST, [](const JsonVariantConst& payload) {
         myCli.onDeviceLost(payload);
+    });
+
+    eventBus.subscribe(EventType::DEVICE_UPDATED, [](const JsonVariantConst& payload) {
+        myCli.onDeviceUpdate(payload);
     });
 
     eventBus.subscribe(EventType::DEVICE_DISCOVERED, [](const JsonVariantConst& payload) {
@@ -73,10 +79,10 @@ void setup()
 
 void loop()
 {
-    // handleWateringLogic();
-
     led.update();
     valve.update();
     controller.update();
     myCli.update();
+    deviceController.update();
+    vTaskDelay(pdMS_TO_TICKS(10));
 }

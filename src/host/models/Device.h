@@ -4,7 +4,9 @@
 
 enum class DeviceStatus : uint8_t
 {
-    ACTIVE = 0,
+    UNPAIRED = 0,
+    CONNECTING,
+    ACTIVE,
     INACTIVE,
     BLOCKED
 };
@@ -18,10 +20,9 @@ struct DeviceHeader
 
 struct DeviceSettings
 {
-    bool isValid;
-    //...
+    bool isValid = false;
+    uint16_t reportIntervalSec = 60;
 };
-
 
 struct Device
 {
@@ -29,9 +30,27 @@ struct Device
     DeviceSettings settings;
 };
 
-
 template <size_t MAX_DEVICES = 32>
-struct DeviceListStorage {
+struct DeviceListStorage
+{
     uint8_t count = 0;
     Device items[MAX_DEVICES];
 };
+
+inline void deviceToJson(const Device &dev, JsonObject obj)
+{
+    obj["mac"] = macToString(dev.header.mac);
+    obj["type"] = static_cast<int>(dev.header.type);
+    obj["status"] = static_cast<int>(dev.header.status);
+
+    JsonObject settings = obj["settings"].to<JsonObject>();
+    settings["isValid"] = dev.settings.isValid;
+    settings["reportIntervalSec"] = dev.settings.reportIntervalSec;
+}
+
+inline JsonDocument deviceToJson(const Device &dev)
+{
+    JsonDocument doc;
+    deviceToJson(dev, doc.to<JsonObject>());
+    return doc;
+}
