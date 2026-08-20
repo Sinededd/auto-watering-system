@@ -18,6 +18,7 @@ struct DeviceHeader
 
 struct DeviceSettings
 {
+    bool isValid;
     //...
 };
 
@@ -26,4 +27,11 @@ struct Device
 {
     DeviceHeader header;
     DeviceSettings settings;
+};
+
+
+template <size_t MAX_DEVICES = 32>
+struct DeviceListStorage {
+    uint8_t count = 0;
+    Device items[MAX_DEVICES];
 };

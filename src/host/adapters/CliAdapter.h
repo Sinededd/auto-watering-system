@@ -11,33 +11,38 @@ private:
     uint8_t pos = 0;
 
     void processLine(const String& line) {
-        if (line.length() == 0) return;
+    if (line.length() == 0) return;
 
-        // Separate the command name and the remaining string of arguments
-        int spaceIdx = line.indexOf(' ');
-        String cmdName = (spaceIdx == -1) ? line : line.substring(0, spaceIdx);
-        String argsStr = (spaceIdx == -1) ? "" : line.substring(spaceIdx + 1);
+    int spaceIdx = line.indexOf(' ');
+    String cmdName = (spaceIdx == -1) ? line : line.substring(0, spaceIdx);
+    String argsStr = (spaceIdx == -1) ? "" : line.substring(spaceIdx + 1);
 
-        JsonDocument doc;
-        JsonArray argsArr = doc["args"].to<JsonArray>();
+    JsonDocument doc;
+    JsonArray argsArr = doc["args"].to<JsonArray>();
 
-        // Parsing arguments only if they exist
-        if (argsStr.length() > 0) {
-            int start = 0;
-            int end = argsStr.indexOf(' ');
-            while (end != -1) {
-                argsArr.add(argsStr.substring(start, end));
-                start = end + 1;
-                end = argsStr.indexOf(' ', start);
-            }
-            argsArr.add(argsStr.substring(start));
+    if (argsStr.length() > 0) {
+        int start = 0;
+        int end = argsStr.indexOf(' ');
+        while (end != -1) {
+            String arg = argsStr.substring(start, end);
+            if (arg.length() > 0) argsArr.add(arg);
+            start = end + 1;
+            end = argsStr.indexOf(' ', start);
         }
-
-        JsonDocument respData;
-        CommandResult res = registry.execute(cmdName, doc.as<JsonVariantConst>(), respData);
-        
-        Serial.println(res.success ? res.message : "[ОШИБКА] " + res.message);
+        String lastArg = argsStr.substring(start);
+        if (lastArg.length() > 0) argsArr.add(lastArg);
     }
+
+    JsonDocument respData;
+    CommandResult res = registry.execute(cmdName, doc.as<JsonVariantConst>(), respData);
+
+    Serial.println(res.success ? res.message : "[ОШИБКА] " + res.message);
+
+    if (!respData.isNull() && respData.size() > 0) {
+        serializeJsonPretty(respData, Serial);
+        Serial.println();
+    }
+}
 
 public:
     explicit CliAdapter(CommandRegistry& reg) : registry(reg) {}

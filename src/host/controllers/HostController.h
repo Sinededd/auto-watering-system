@@ -9,7 +9,7 @@ class HostController
 private:
     EventBus& eventBus;
     EspNowManager &net;
-    PairingBuffer pairingBuffer;
+    PairingBuffer &pairingBuffer;
 
     void handlePairRequest(const esp_now_recv_info_t *info, const PairRequestPacket &packet)
     {
@@ -17,8 +17,8 @@ private:
     }
 
 public:
-    HostController(EspNowManager &netMgr, EventBus &bus)
-        : eventBus(bus), net(netMgr), pairingBuffer(bus) {}
+    HostController(EspNowManager &netMgr, EventBus &bus, PairingBuffer &pairingBuffer)
+        : eventBus(bus), net(netMgr), pairingBuffer(pairingBuffer) {}
 
     void begin()
     {
