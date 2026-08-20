@@ -17,7 +17,6 @@
 #include <esp_now.h>
 #include <ArduinoJson.h>
 #include "storage.h"
-#include "web_server.h"
 #include "common/types.h"
 #include "Logger.h"
 #include "Config.h"
@@ -29,6 +28,7 @@
 #include "commands/ValveCommand.h"
 #include "commands/HelpCommand.h"
 #include "controllers/HostController.h"
+#include "adapters/WebAdapter.h"
 
 // PIN Settings
 const uint8_t LED_PIN = 2;
@@ -436,9 +436,12 @@ Valve valve(VALVE_PIN);
 EspNowManager netMgr(WIFI_MODE_AP);
 
 CommandRegistry cmdRegistry;
+AsyncWebServer server(80);
+WebAdapter webAdapter(server, cmdRegistry);
 CliAdapter myCli(cmdRegistry);
 
-HostController controller(netMgr);
+EventBus eventBus;
+HostController controller(netMgr, eventBus);
 
 void setup()
 {
@@ -448,12 +451,31 @@ void setup()
     led.begin();
     valve.begin();
     netMgr.begin();
+
+    webAdapter.begin();
+    server.begin();
+
     controller.begin();
 
     cmdRegistry.registerCommand(std::make_unique<HelpCommand>(cmdRegistry));
     cmdRegistry.registerCommand(std::make_unique<LedCommand>(&led));
     cmdRegistry.registerCommand(std::make_unique<ValveCommand>(&valve));
  
+    eventBus.subscribe(EventType::DEVICE_DISCOVERED, [](const JsonVariantConst& payload) {
+        myCli.onDeviceDiscovered(payload);
+    });
+
+    eventBus.subscribe(EventType::DEVICE_LOST, [](const JsonVariantConst& payload) {
+        myCli.onDeviceLost(payload);
+    });
+
+    eventBus.subscribe(EventType::DEVICE_DISCOVERED, [](const JsonVariantConst& payload) {
+        webAdapter.onDeviceDiscovered(payload);
+    });
+
+    eventBus.subscribe(EventType::DEVICE_LOST, [](const JsonVariantConst& payload) {
+        webAdapter.onDeviceLost(payload);
+    });
 
 
 

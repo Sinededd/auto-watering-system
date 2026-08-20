@@ -2,10 +2,12 @@
 #include <EspNowManager.h>
 #include <Logger.h>
 #include "PairingBuffer.h"
+#include "host/events/EventBus.h"
 
 class HostController
 {
 private:
+    EventBus& eventBus;
     EspNowManager &net;
     PairingBuffer pairingBuffer;
 
@@ -15,8 +17,8 @@ private:
     }
 
 public:
-    HostController(EspNowManager &netMgr)
-        : net(netMgr) {}
+    HostController(EspNowManager &netMgr, EventBus &bus)
+        : eventBus(bus), net(netMgr), pairingBuffer(bus) {}
 
     void begin()
     {

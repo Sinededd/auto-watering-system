@@ -3,6 +3,7 @@
 #include <ArduinoJson.h>
 #include "host/commands/CommandRegistry.h"
 
+
 class CliAdapter {
 private:
     CommandRegistry& registry;
@@ -40,6 +41,17 @@ private:
 
 public:
     explicit CliAdapter(CommandRegistry& reg) : registry(reg) {}
+
+    void onDeviceDiscovered(const JsonVariantConst& payload) {
+        Serial.printf("\n[CLI EVENT] Найдено новое устройство: %s (Тип: %d)\n> ", 
+                      payload["mac"].as<const char*>(),
+                      payload["type"].as<int>());
+    }
+
+    void onDeviceLost(const JsonVariantConst& payload) {
+        Serial.printf("\n[CLI EVENT] Устройство пропало: %s\n> ", 
+                      payload["mac"].as<const char*>());
+    }
 
     void update() {
         while (Serial.available() > 0) {
