@@ -36,13 +36,13 @@ bool EspNowManager::begin()
     return true;
 }
 
-bool EspNowManager::addPeer(const uint8_t *macAddress, uint8_t channel)
+bool EspNowManager::addPeer(const MacAddress &mac, uint8_t channel)
 {
-    if (esp_now_is_peer_exist(macAddress))
+    if (esp_now_is_peer_exist(mac.bytes))
         return true;
 
     esp_now_peer_info_t peerInfo = {};
-    memcpy(peerInfo.peer_addr, macAddress, 6);
+    memcpy(peerInfo.peer_addr, mac.bytes, 6);
     peerInfo.channel = channel;
     peerInfo.encrypt = false;
 

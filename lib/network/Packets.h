@@ -1,32 +1,11 @@
 #pragma once
 #include <Arduino.h>
+#include <string>
+#include "Device.h"
 
 inline constexpr uint8_t BROADCAST_MAC[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
-enum class DeviceType : uint8_t
-{
-    UNKNOWN = 0,
-    HOST,
-    SOIL_MOISTURE, // soil moisture
-    AIR_THP        // air temperature and humidity
-};
-
-inline std::string deviceTypeToRussian(DeviceType type)
-{
-    switch (type)
-    {
-    case DeviceType::UNKNOWN:
-        return "Неизвестный";
-    case DeviceType::HOST:
-        return "Главный модуль";
-    case DeviceType::SOIL_MOISTURE:
-        return "Влажность почвы";
-    case DeviceType::AIR_THP:
-        return "Влаж. и тем. воздуха";
-    default:
-        return std::to_string(static_cast<int>(type));
-    }
-}
+#pragma pack(push, 1)
 
 enum class PacketType : uint8_t
 {
@@ -38,37 +17,38 @@ enum class PacketType : uint8_t
     HELLO
 };
 
-struct __attribute__((packed)) PacketHeader
+struct PacketHeader
 {
     PacketType type;
 };
 
-struct __attribute__((packed)) PairRequestPacket
+struct PairRequestPacket
 {
-    PacketHeader header = {PacketType::PAIR_REQUEST};
-    uint8_t deviceMac[6];
-    DeviceType deviceType;
+    PacketHeader packet = {PacketType::PAIR_REQUEST};
+    DeviceHeader header;
 };
 
-struct __attribute__((packed)) PairAcceptPacket
+struct PairAcceptPacket
 {
-    PacketHeader header = {PacketType::PAIR_ACCEPT};
+    PacketHeader packet = {PacketType::PAIR_ACCEPT};
 };
 
-struct __attribute__((packed)) SettingsReportPacket
+struct SettingsReportPacket
 {
-    PacketHeader header = {PacketType::SETTINGS_REPORT};
-    uint16_t reportIntervalSec;
+    PacketHeader packet = {PacketType::SETTINGS_REPORT};
+    Device deviceInfo;
 };
 
-struct __attribute__((packed)) StartWorkModePacket
+struct StartWorkModePacket
 {
-    PacketHeader header = {PacketType::START_WORK_MODE};
+    PacketHeader packet = {PacketType::START_WORK_MODE};
     uint32_t timestamp;
 };
 
-struct __attribute__((packed)) HelloPacket
+struct HelloPacket
 {
-    PacketHeader header = {PacketType::HELLO};
+    PacketHeader packet = {PacketType::HELLO};
     uint32_t timestamp;
 };
+
+#pragma pack(pop)

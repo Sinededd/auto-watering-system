@@ -4,10 +4,10 @@
 #include <esp_now.h>
 #include <map>
 #include <WiFiType.h>
-#include <Converter.h>
 #include <Logger.h>
 #include "Packets.h"
 #include <WiFiGeneric.h>
+#include <MacAddress.h>
 
 using RawPacketHandler = std::function<void(const esp_now_recv_info_t *esp_now_info, const uint8_t *data, int len)>;
 
@@ -34,7 +34,7 @@ public:
     wifi_power_t getWifiPower() { return wifiPower; }
     void setWifiPower(wifi_power_t wifi_power);
 
-    bool addPeer(const uint8_t *macAddress, uint8_t channel = 0);
+    bool addPeer(const MacAddress &mac, uint8_t channel = 0);
 
     /// @brief Register a handler for a specific packet structure
     template <typename PacketStruct>
@@ -64,12 +64,12 @@ public:
 
     /// @brief Send any packet structure
     template <typename T>
-    bool send(const uint8_t *macAddress, const T &packet)
+    bool send(const MacAddress &mac, const T &packet)
     {
         static_assert(sizeof(T) <= 250, "Packet size exceeds ESP-NOW limit of 250 bytes!");
         LOG_D("ESP_NOW_MANAGER", "Sending packet to MAC: %s, size: %zu bytes",
-              macToString(macAddress).c_str(),
+              mac.toString().c_str(),
               sizeof(T));
-        return esp_now_send(macAddress, (const uint8_t *)&packet, sizeof(T)) == ESP_OK;
+        return esp_now_send(mac.bytes, (const uint8_t *)&packet, sizeof(T)) == ESP_OK;
     }
 };

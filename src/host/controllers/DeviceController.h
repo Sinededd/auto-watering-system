@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <EspNowManager.h>
 #include <vector>
+#include <MacAddress.h>
 #include <host/events/EventBus.h>
 #include "DeviceRegistry.h"
 #include "PairingBuffer.h"
@@ -16,7 +17,7 @@ enum class PairResult
 
 struct PendingPairing
 {
-    uint8_t mac[6];
+    MacAddress mac;
     uint32_t startTimeMs;
 };
 
@@ -24,7 +25,7 @@ class DeviceController
 {
 private:
     static constexpr const char *TAG = "DeviceController";
-    static constexpr uint32_t PAIR_TIMEOUT_MS = 20000;
+    static constexpr uint32_t PAIR_TIMEOUT_MS = 10000;
 
     DeviceRegistry &registry;
     PairingBuffer &pairingBuff;
@@ -35,12 +36,12 @@ private:
 
     void handleSettingsReport(const esp_now_recv_info_t *info, const SettingsReportPacket &pkt)
     {
-        const uint8_t *mac = info->src_addr;
+        MacAddress mac(info->src_addr);
 
         std::optional<Device> devOpt = registry.getByMac(mac);
         if (!devOpt.has_value())
         {
-            LOG_W(TAG, "Received settings from unknown device: %s", macToString(mac).c_str());
+            LOG_W(TAG, "Received settings from unknown device: %s", mac.toString().c_str());
             return;
         }
 
@@ -53,7 +54,7 @@ private:
 
         if (!registry.save(dev))
         {
-            LOG_E(TAG, "Failed to save device settings %s", macToString(mac).c_str());
+            LOG_E(TAG, "Failed to save device settings %s", mac.toString().c_str());
             return;
         }
 
@@ -61,17 +62,17 @@ private:
         startPkt.timestamp = millis() / 1000;
         network.send(mac, startPkt);
 
-        LOG_I(TAG, "Device %s successfully connected and transferred to WORK_MODE", macToString(mac).c_str());
+        LOG_I(TAG, "Device %s successfully connected and transferred to WORK_MODE", mac.toString().c_str());
 
         JsonDocument doc = deviceToJson(dev);
         eventBus.publish(EventType::DEVICE_UPDATED, doc.as<JsonVariantConst>());
     }
 
-    void removePending(const uint8_t *mac)
+    void removePending(const MacAddress& mac)
     {
         for (auto it = pendingPairs.begin(); it != pendingPairs.end(); ++it)
         {
-            if (memcmp(it->mac, mac, 6) == 0)
+            if (it->mac == mac)
             {
                 pendingPairs.erase(it);
                 break;
@@ -104,10 +105,10 @@ public:
         {
             if (now - it->startTimeMs > PAIR_TIMEOUT_MS)
             {
-                LOG_W(TAG, "Pairing timeout for device: %s", macToString(it->mac).c_str());
+                LOG_W(TAG, "Pairing timeout for device: %s", it->mac.toString().c_str());
 
                 Device failedDev{};
-                memcpy(failedDev.header.mac, it->mac, 6);
+                failedDev.header.mac = it->mac;
                 failedDev.header.status = DeviceStatus::UNPAIRED;
 
                 JsonDocument doc = deviceToJson(failedDev);
@@ -125,7 +126,7 @@ public:
         }
     }
 
-    PairResult pairDevice(const uint8_t *mac)
+    PairResult pairDevice(const MacAddress& mac)
     {
         if (registry.getByMac(mac).has_value())
         {
@@ -135,7 +136,7 @@ public:
         const DiscoveredDevice *foundInBuff = nullptr;
         for (const auto &dev : pairingBuff.getList())
         {
-            if (memcmp(dev.device.header.mac, mac, 6) == 0)
+            if (dev.device.header.mac ==  mac)
             {
                 foundInBuff = &dev;
                 break;
@@ -148,7 +149,7 @@ public:
         }
 
         Device newDevice{};
-        memcpy(newDevice.header.mac, foundInBuff->device.header.mac, 6);
+        newDevice.header.mac = foundInBuff->device.header.mac;
         newDevice.header.type = foundInBuff->device.header.type;
         newDevice.header.status = DeviceStatus::CONNECTING;
         newDevice.settings.isValid = false;
@@ -166,7 +167,7 @@ public:
         pairingBuff.remove(mac);
 
         PendingPairing pending;
-        memcpy(pending.mac, mac, 6);
+        pending.mac = mac;
         pending.startTimeMs = millis();
         pendingPairs.push_back(pending);
 

@@ -2,7 +2,6 @@
 #include <Arduino.h>
 #include <StorageManager.h>
 #include <host/models/Device.h>
-#include <Converter.h>
 #include <optional>
 
 class DeviceRegistry
@@ -10,7 +9,7 @@ class DeviceRegistry
 private:
     static constexpr const char *TAG = "DeviceRegistry";
     static constexpr const char *STORAGE_KEY = "dev_list";
-    using ListType = DeviceListStorage<32>;
+    using ListType = DeviceListStorage<16>;
 
     StorageManager &storage;
     ListType cache;
@@ -33,6 +32,40 @@ public:
         ensureLoaded();
     }
 
+    void onPairRequest(const MacAddress &mac, DeviceType type)
+    {
+        if (registry.getByMac(mac).has_value())
+        {
+            return;
+        }
+
+        uint32_t now = millis();
+
+        for (auto &item : queue)
+        {
+            if (item.device.header.mac == mac)
+            {
+                item.lastSeenMs = now;
+                return;
+            }
+        }
+
+        DiscoveredDevice item;
+        item.device.header.mac = mac;
+        item.device.header.type = type;
+        item.device.header.status = DeviceStatus::UNPAIRED;
+        item.device.settings.isValid = false;
+        item.lastSeenMs = now;
+
+        queue.push_back(item);
+        LOG_I(TAG, "New device found nearby: %s (%s)",
+              item.device.header.mac.toString().c_str(),
+              deviceTypeToRussian(item.device.header.type).c_str());
+
+        JsonDocument doc = deviceToJson(item.device);
+        eventBus.publish(EventType::DEVICE_DISCOVERED, doc.as<JsonVariantConst>());
+    }
+
     bool save(const Device &device)
     {
         ensureLoaded();
@@ -40,7 +73,7 @@ public:
         int foundIndex = -1;
         for (uint8_t i = 0; i < cache.count; ++i)
         {
-            if (memcmp(cache.items[i].header.mac, device.header.mac, 6) == 0)
+            if (cache.items[i].header.mac == device.header.mac)
             {
                 foundIndex = i;
                 break;
@@ -64,13 +97,13 @@ public:
         return storage.save(STORAGE_KEY, cache);
     }
 
-    std::optional<Device> getByMac(const uint8_t *mac)
+    std::optional<Device> getByMac(const MacAddress &mac)
     {
         ensureLoaded();
 
         for (uint8_t i = 0; i < cache.count; ++i)
         {
-            if (memcmp(cache.items[i].header.mac, mac, 6) == 0)
+            if (cache.items[i].header.mac == mac)
             {
                 return cache.items[i];
             }
@@ -79,7 +112,7 @@ public:
         return std::nullopt;
     }
 
-    bool remove(const uint8_t *mac)
+    bool remove(const MacAddress &mac)
     {
         ensureLoaded();
 
@@ -91,7 +124,7 @@ public:
         int foundIndex = -1;
         for (uint8_t i = 0; i < cache.count; ++i)
         {
-            if (memcmp(cache.items[i].header.mac, mac, 6) == 0)
+            if (cache.items[i].header.mac == mac)
             {
                 foundIndex = i;
                 break;

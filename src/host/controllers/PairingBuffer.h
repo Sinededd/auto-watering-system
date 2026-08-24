@@ -2,7 +2,6 @@
 #include <Arduino.h>
 #include <vector>
 #include <Logger.h>
-#include <Converter.h>
 #include "host/events/EventBus.h"
 #include "host/models/Device.h"
 
@@ -24,7 +23,7 @@ private:
 public:
     explicit PairingBuffer(EventBus &bus, DeviceRegistry &registry) : eventBus(bus), registry(registry)  {}
 
-    void onPairRequest(const uint8_t *mac, DeviceType type)
+    void onPairRequest(const MacAddress &mac, DeviceType type)
     {
         if (registry.getByMac(mac).has_value())
         {
@@ -35,7 +34,7 @@ public:
 
         for (auto &item : queue)
         {
-            if (memcmp(item.device.header.mac, mac, 6) == 0)
+            if (item.device.header.mac == mac)
             {
                 item.lastSeenMs = now;
                 return;
@@ -43,7 +42,7 @@ public:
         }
 
         DiscoveredDevice item;
-        memcpy(item.device.header.mac, mac, 6);
+        item.device.header.mac = mac;
         item.device.header.type = type;
         item.device.header.status = DeviceStatus::UNPAIRED;
         item.device.settings.isValid = false;
@@ -51,7 +50,7 @@ public:
 
         queue.push_back(item);
         LOG_I(TAG, "New device found nearby: %s (%s)",
-              macToString(item.device.header.mac).c_str(),
+              item.device.header.mac.toString().c_str(),
               deviceTypeToRussian(item.device.header.type).c_str());
 
         JsonDocument doc = deviceToJson(item.device);
@@ -66,7 +65,7 @@ public:
         {
             if (now - it->lastSeenMs > TTL_MS)
             {
-                LOG_I(TAG, "Device out of reach: %s", macToString(it->device.header.mac).c_str());
+                LOG_I(TAG, "Device out of reach: %s", it->device.header.mac.toString().c_str());
 
                 JsonDocument doc = deviceToJson(it->device);
                 eventBus.publish(EventType::DEVICE_LOST, doc.as<JsonVariantConst>());
@@ -80,11 +79,11 @@ public:
         }
     }
 
-    void remove(const uint8_t *mac)
+    void remove(const MacAddress &mac)
     {
         for (auto it = queue.begin(); it != queue.end(); ++it)
         {
-            if (memcmp(it->device.header.mac, mac, 6) == 0)
+            if (it->device.header.mac == mac)
             {
                 queue.erase(it);
                 break;

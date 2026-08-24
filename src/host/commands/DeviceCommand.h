@@ -1,6 +1,6 @@
 #pragma once
 #include <ArduinoJson.h>
-#include <Converter.h>
+#include <MacAddress.h>
 #include "ICommand.h"
 #include "host/controllers/DeviceController.h"
 #include "host/controllers/PairingBuffer.h"
@@ -47,8 +47,8 @@ public:
                 return {false, "Укажите MAC-адрес (например: device connect 24:6F:28:AB:CD:12)"};
             }
 
-            uint8_t mac[6];
-            if (!stringToMac(macStr.c_str(), mac))
+            MacAddress mac;
+            if (!MacAddress::fromString(macStr.c_str(), mac))
             {
                 return {false, "Неверно указан MAC-адрес"};
             }
