@@ -11,8 +11,6 @@
 #include "commands/DeviceCommand.h"
 #include "controllers/HostController.h"
 #include "adapters/WebAdapter.h"
-#include "controllers/PairingBuffer.h"
-#include "controllers/DeviceRegistry.h"
 
 
 static const char *TAG = "MAIN";
@@ -29,11 +27,10 @@ CliAdapter myCli(cmdRegistry);
 EventBus eventBus;
 
 StorageManager storage;
-DeviceRegistry deviceRegistry(storage);
-PairingBuffer pairingBuffer(eventBus, deviceRegistry);
 
-HostController controller(netMgr, eventBus, pairingBuffer);
-DeviceController deviceController(deviceRegistry, pairingBuffer, netMgr, eventBus);
+DeviceController deviceController(netMgr, eventBus);
+HostController controller(netMgr, deviceController);
+
 
 void setup()
 {
@@ -47,13 +44,13 @@ void setup()
     webAdapter.begin();
     server.begin();
 
-    controller.begin();
     deviceController.begin();
-
+    controller.begin();
+    
     cmdRegistry.registerCommand(std::make_unique<HelpCommand>(cmdRegistry));
     cmdRegistry.registerCommand(std::make_unique<LedCommand>(&led));
     cmdRegistry.registerCommand(std::make_unique<ValveCommand>(&valve));
-    cmdRegistry.registerCommand(std::make_unique<DeviceCommand>(deviceController, deviceRegistry, pairingBuffer));
+    cmdRegistry.registerCommand(std::make_unique<DeviceCommand>(deviceController));
  
     eventBus.subscribe(EventType::DEVICE_DISCOVERED, [](const JsonVariantConst& payload) {
         myCli.onDeviceDiscovered(payload);
@@ -81,7 +78,7 @@ void loop()
 {
     led.update();
     valve.update();
-    controller.update();
+    deviceController.update();
     myCli.update();
     deviceController.update();
     vTaskDelay(pdMS_TO_TICKS(10));

@@ -48,9 +48,9 @@ public:
     explicit CliAdapter(CommandRegistry& reg) : registry(reg) {}
 
     void onDeviceDiscovered(const JsonVariantConst& payload) {
-        Serial.printf("\n[CLI EVENT] Найдено новое устройство: %s (Тип: %d)\n> ", 
+        Serial.printf("\n[CLI EVENT] Найдено новое устройство: %s (Тип: %s)\n> ", 
                       payload["mac"].as<const char*>(),
-                      payload["type"].as<int>());
+                      payload["type"].as<const char*>());
     }
 
     void onDeviceLost(const JsonVariantConst& payload) {

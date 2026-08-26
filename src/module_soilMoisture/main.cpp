@@ -1,9 +1,7 @@
 #include <Arduino.h>
 #include <Button2.h>
 #include "config.h"
-#include "../common/types.h"
 #include "sensor.h"
-#include "network.h"
 #include "settings.h"
 #include <esp_now.h>
 
@@ -24,67 +22,7 @@ unsigned long lastCalibSignalTime = 0;        // Время последнего
 unsigned long lastCalibDataSent = 0;          // Время последней отправки вольт на хост
 const unsigned long CALIB_TIMEOUT_MS = 60000; // 25 секунд без команд с сайта — и датчик уснет
 
-// Индикация состояний светодиодом
-void updateLedIndicator()
-{
 
-    unsigned long currentMillis = millis();
-
-    if (updateMAC && (currentMillis - lastToggle < RESET_BLINK_TIME))
-    {
-        if (currentMillis - rapidBlinkTimer > 175)
-        {
-            rapidBlinkTimer = currentMillis;
-            ledState = !ledState;
-            digitalWrite(LED_PIN, ledState);
-        }
-        return;
-    }
-    else
-    {
-        if (updateMAC)
-        {
-            updateMAC = false;
-            lastToggle = currentMillis;
-        }
-    }
-
-    switch (pairingStatus)
-    {
-    case NOT_PAIRED:
-    case PAIRING_REQUESTED:
-        if (currentMillis - lastToggle >= 500)
-        {
-            ledState = !ledState;
-            lastToggle = currentMillis;
-        }
-        break;
-
-    case PAIRED:
-        ledState = false; // Выключаем светодиод в режиме сна / бодрствования для экономии батареи
-        break;
-    }
-
-    if (currentState != ledState)
-    {
-        currentState = ledState;
-        digitalWrite(LED_PIN, currentState);
-    }
-}
-
-// Обработчики прерываний кнопки
-void handleButtonTap(Button2 &b)
-{
-    Serial.println("Клик кнопки в активном режиме!");
-}
-
-void handleLongPressDetected(Button2 &b)
-{
-    Serial.println("[BUTTON] Удержание 5 сек! Сброс сопряжения...");
-    resetNetworkSettings();
-    updateMAC = true;
-    lastToggle = millis();
-}
 
 // void setup()
 // {

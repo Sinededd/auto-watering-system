@@ -3,16 +3,12 @@
 #include <MacAddress.h>
 #include "ICommand.h"
 #include "host/controllers/DeviceController.h"
-#include "host/controllers/PairingBuffer.h"
-#include "host/controllers/DeviceRegistry.h"
-#include "host/models/Device.h"
+
 
 class DeviceCommand : public ICommand
 {
 private:
     DeviceController &deviceController;
-    PairingBuffer &pairingBuffer;
-    DeviceRegistry &deviceRegistry;
 
     String helpCommand() {
         return "Использование:\n"
@@ -22,12 +18,8 @@ private:
 
 public:
     explicit DeviceCommand(
-        DeviceController &deviceController,
-        DeviceRegistry &deviceRegistry, 
-        PairingBuffer &pairingBuffer
-    ) : deviceController(deviceController), 
-        deviceRegistry(deviceRegistry), 
-        pairingBuffer(pairingBuffer) {}
+        DeviceController &deviceController
+    ) : deviceController(deviceController) {}
 
     String getName() const override { return "device"; }
     String getDescription() const override { return "device [help|list|connect] — Управление устройствами"; }
@@ -58,27 +50,13 @@ public:
         }
 
         if (action == "list") {
-            String filter = payload["filter"] | payload["args"][1] | "all";
 
-            if (filter == "pairing" || filter == "all") {
-                JsonArray pairingArr = outData["pairing"].to<JsonArray>();
-                for (const auto &item : pairingBuffer.getList()) {
-                    JsonObject obj = pairingArr.add<JsonObject>();
-                    deviceToJson(item.device, obj);
-                    obj["lastSeenAgoMs"] = millis() - item.lastSeenMs;
-                }
-            }
-
-            if (filter == "saved" || filter == "connected" || filter == "all") {
-                JsonArray savedArr = outData["saved"].to<JsonArray>();
-                auto savedDevices = deviceRegistry.getAll();
-
-                if (savedDevices.has_value()) {
-                    for (uint8_t i = 0; i < savedDevices->count; ++i) {
-                        JsonObject obj = savedArr.add<JsonObject>();
-                        deviceToJson(savedDevices->items[i], obj);
-                    }
-                }
+            std::unordered_map<MacAddress, DeviceHeader> devices = deviceController.getPendingPairs();
+            for (const auto &[mac, header] : devices)
+            {
+                JsonArray savedArr = outData["pairing"].to<JsonArray>();
+                JsonObject obj = savedArr.add<JsonObject>();
+                deviceHeaderToJson(header, obj);
             }
 
             return {true, "OK"};

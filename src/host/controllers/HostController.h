@@ -1,24 +1,22 @@
 #pragma once
 #include <EspNowManager.h>
 #include <Logger.h>
-#include "PairingBuffer.h"
-#include "host/events/EventBus.h"
+#include "DeviceController.h"
 
 class HostController
 {
 private:
-    EventBus& eventBus;
     EspNowManager &net;
-    PairingBuffer &pairingBuffer;
+    DeviceController &devController;
 
     void handlePairRequest(const esp_now_recv_info_t *info, const PairRequestPacket &packet)
     {
-        pairingBuffer.onPairRequest(info->src_addr, packet.deviceType);
+        devController.onPairRequest(info, packet);
     }
 
 public:
-    HostController(EspNowManager &netMgr, EventBus &bus, PairingBuffer &pairingBuffer)
-        : eventBus(bus), net(netMgr), pairingBuffer(pairingBuffer) {}
+    HostController(EspNowManager &netMgr, DeviceController &devController)
+        : net(netMgr), devController(devController) {}
 
     void begin()
     {
@@ -28,16 +26,5 @@ public:
             {
                 this->handlePairRequest(info, pkt);
             });
-    }
-
-    void update() {
-        pairingBuffer.update();
-    }
-
-    // bool pairDevice(const String& macStr, DeviceType type) {
-    // }
-
-    const PairingBuffer& getPairingBuffer() const {
-        return pairingBuffer;
     }
 };

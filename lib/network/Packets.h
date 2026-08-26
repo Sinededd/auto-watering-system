@@ -14,7 +14,7 @@ enum class PacketType : uint8_t
     PAIR_ACCEPT,
     SETTINGS_REPORT,
     START_WORK_MODE,
-    HELLO
+    DATA_REPORT
 };
 
 struct PacketHeader
@@ -22,33 +22,40 @@ struct PacketHeader
     PacketType type;
 };
 
+// Sensor packets
+
 struct PairRequestPacket
 {
     PacketHeader packet = {PacketType::PAIR_REQUEST};
-    DeviceHeader header;
+    char type[12];
+
 };
+
+struct SettingsReportPacket
+{
+    PacketHeader packet = {PacketType::SETTINGS_REPORT};
+    DeviceSettings settings;
+    DeviceInterface interface;
+};
+
+struct DataReportPacket
+{
+    PacketHeader packet = {PacketType::DATA_REPORT};
+    uint8_t count;
+    float values[3];
+};
+
+// host packets
 
 struct PairAcceptPacket
 {
     PacketHeader packet = {PacketType::PAIR_ACCEPT};
 };
 
-struct SettingsReportPacket
-{
-    PacketHeader packet = {PacketType::SETTINGS_REPORT};
-    Device deviceInfo;
-};
 
 struct StartWorkModePacket
 {
     PacketHeader packet = {PacketType::START_WORK_MODE};
-    uint32_t timestamp;
-};
-
-struct HelloPacket
-{
-    PacketHeader packet = {PacketType::HELLO};
-    uint32_t timestamp;
 };
 
 #pragma pack(pop)

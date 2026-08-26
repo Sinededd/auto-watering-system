@@ -15,19 +15,13 @@ enum class DeviceStatus : uint8_t
     BLOCKED
 };
 
-enum class MetricType : uint8_t
-{
-    CUSTOM = 0,
-    SOIL_MOISTURE,
-    AIR_TEMPERATURE,
-    AIR_HUMIDITY,
-};
-
 struct DeviceHeader
 {
     MacAddress mac;
-    uint8_t deviceType;
     DeviceStatus status;
+    char type[12];
+    int8_t sigLevel;
+    uint32_t lastSeenMs = 0;
 };
 
 struct DeviceSettings
@@ -46,10 +40,12 @@ struct CalibrationParams
 
 struct MetricDescriptor
 {
-    MetricType type;
+    uint8_t type;
+    char label[24];
+    char unit[8];
     float minVal;
     float maxVal;
-    float targetThreshold;
+    float grid;
     CalibrationParams calib;
 };
 
@@ -68,13 +64,6 @@ struct Device
 
 #pragma pack(pop)
 
-template <size_t MAX_DEVICES = 32>
-struct DeviceListStorage
-{
-    uint8_t count = 0;
-    Device items[MAX_DEVICES];
-};
-
 inline const char* deviceStatusToString(DeviceStatus status)
 {
     switch (status)
@@ -88,37 +77,18 @@ inline const char* deviceStatusToString(DeviceStatus status)
     }
 }
 
-inline const char* metricTypeToString(MetricType type)
-{
-    switch (type)
-    {
-        case MetricType::SOIL_MOISTURE:   return "Влажность почвы";
-        case MetricType::AIR_TEMPERATURE: return "Температура воздуха";
-        case MetricType::AIR_HUMIDITY:    return "Влажность воздуха";
-        case MetricType::CUSTOM:          
-        default:                          return "Пользовательская";
-    }
-}
-
-inline const char* metricTypeToUnit(MetricType type)
-{
-    switch (type)
-    {
-        case MetricType::SOIL_MOISTURE:   return "%";
-        case MetricType::AIR_TEMPERATURE: return "°C";
-        case MetricType::AIR_HUMIDITY:    return "%";
-        case MetricType::CUSTOM:          
-        default:                          return "";
-    }
-}
-
 inline void deviceToJson(const Device &dev, JsonObject obj)
 {
     JsonObject header = obj["header"].to<JsonObject>();
     header["mac"] = dev.header.mac.toArduinoString();
-    header["type"] = dev.header.deviceType;
     header["status"] = static_cast<uint8_t>(dev.header.status);
     header["statusStr"] = deviceStatusToString(dev.header.status);
+    header["type"] = dev.header.type;
+    header["sigLevel"] = dev.header.sigLevel;
+    header["lastSeenMs"] = dev.header.lastSeenMs;
+    
+    uint32_t secondsAgo = (dev.header.lastSeenMs > 0) ? (millis() - dev.header.lastSeenMs) / 1000 : 0;
+    header["lastSeenSecAgo"] = secondsAgo;
 
     JsonObject settings = obj["settings"].to<JsonObject>();
     settings["reportIntervalSec"] = dev.settings.reportIntervalSec;
@@ -138,12 +108,12 @@ inline void deviceToJson(const Device &dev, JsonObject obj)
         const auto &m = dev.interface.metrics[i];
         JsonObject mObj = metricsArr.add<JsonObject>();
 
-        mObj["type"] = static_cast<uint8_t>(m.type);
-        mObj["label"] = metricTypeToString(m.type);
-        mObj["unit"] = metricTypeToUnit(m.type);
+        mObj["type"] = m.type;
+        mObj["label"] = m.label;
+        mObj["unit"] = m.unit;
         mObj["minVal"] = m.minVal;
         mObj["maxVal"] = m.maxVal;
-        mObj["targetThreshold"] = m.targetThreshold;
+        mObj["grid"] = m.grid;
 
         JsonObject calib = mObj["calib"].to<JsonObject>();
         calib["pointsCount"] = m.calib.pointsCount;
@@ -164,5 +134,25 @@ inline JsonDocument deviceToJson(const Device &dev)
 {
     JsonDocument doc;
     deviceToJson(dev, doc.to<JsonObject>());
+    return doc;
+}
+
+inline void deviceHeaderToJson(const DeviceHeader &header, JsonObject obj)
+{
+    obj["mac"] = header.mac.toArduinoString();
+    obj["status"] = static_cast<uint8_t>(header.status);
+    obj["statusStr"] = deviceStatusToString(header.status);
+    obj["type"] = header.type;
+    obj["sigLevel"] = header.sigLevel;
+    obj["lastSeenMs"] = header.lastSeenMs;
+
+    uint32_t secondsAgo = (header.lastSeenMs > 0) ? (millis() - header.lastSeenMs) / 1000 : 0;
+    obj["lastSeenSecAgo"] = secondsAgo;
+}
+
+inline JsonDocument deviceHeaderToJson(const DeviceHeader &header)
+{
+    JsonDocument doc;
+    deviceHeaderToJson(header, doc.to<JsonObject>());
     return doc;
 }

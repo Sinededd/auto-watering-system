@@ -45,3 +45,19 @@ struct MacAddress {
         return true;
     }
 };
+
+namespace std 
+{
+    template <>
+    struct hash<MacAddress>
+    {
+        std::size_t operator()(const MacAddress &mac) const noexcept
+        {
+            // Упаковываем первые 4 байта и 2 байта в 32-битное число для быстрого хэша
+            uint32_t hash = (mac.bytes[0] << 24) | (mac.bytes[1] << 16) | 
+                            (mac.bytes[2] << 8)  | mac.bytes[3];
+            uint16_t tail = (mac.bytes[4] << 8)  | mac.bytes[5];
+            return std::hash<uint32_t>{}(hash) ^ (std::hash<uint16_t>{}(tail) << 1);
+        }
+    };
+}

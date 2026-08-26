@@ -6,10 +6,8 @@
 
 void PairingState::handlePairRequest(DeviceContext &ctx, const esp_now_recv_info_t *info, const PairRequestPacket &packet)
 {
-    if (packet.deviceType != DeviceType::HOST)
-        return;
     NetworkConfig netCfg{};
-    memcpy(netCfg.hostMac, packet.deviceMac, 6);
+    memcpy(netCfg.hostMac, info->src_addr, 6);
     netCfg.channel = 0;
     netCfg.isPaired = true;
 
@@ -46,8 +44,8 @@ void PairingState::update(DeviceContext &ctx)
         lastBroadcastMs = millis();
 
         PairRequestPacket req;
-        WiFi.macAddress(req.deviceMac);
-        req.deviceType = DeviceType::SOIL_MOISTURE;
+        char type[] = "soil";
+        memcpy(req.type, type, sizeof(type));
         ctx.getNet().send(BROADCAST_MAC, req);
     }
 }

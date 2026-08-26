@@ -4,21 +4,13 @@
 #include <vector>
 #include <MacAddress.h>
 #include <host/events/EventBus.h>
-#include "DeviceRegistry.h"
-#include "PairingBuffer.h"
 
-enum class PairResult
-{
+enum class PairResult {
     SUCCESS,
+    PAIRING,
     ALREADY_PAIRED,
     NOT_IN_BUFFER,
     SAVE_FAILED
-};
-
-struct PendingPairing
-{
-    MacAddress mac;
-    uint32_t startTimeMs;
 };
 
 class DeviceController
@@ -27,65 +19,20 @@ private:
     static constexpr const char *TAG = "DeviceController";
     static constexpr uint32_t PAIR_TIMEOUT_MS = 10000;
 
-    DeviceRegistry &registry;
-    PairingBuffer &pairingBuff;
     EspNowManager &network;
     EventBus &eventBus;
 
-    std::vector<PendingPairing> pendingPairs;
+    std::unordered_map<MacAddress, DeviceHeader> pendingPairs;
 
     void handleSettingsReport(const esp_now_recv_info_t *info, const SettingsReportPacket &pkt)
     {
-        MacAddress mac(info->src_addr);
-
-        std::optional<Device> devOpt = registry.getByMac(mac);
-        if (!devOpt.has_value())
-        {
-            LOG_W(TAG, "Received settings from unknown device: %s", mac.toString().c_str());
-            return;
-        }
-
-        removePending(mac);
-
-        Device dev = devOpt.value();
-        dev.settings.reportIntervalSec = pkt.reportIntervalSec;
-        dev.settings.isValid = true;
-        dev.header.status = DeviceStatus::ACTIVE;
-
-        if (!registry.save(dev))
-        {
-            LOG_E(TAG, "Failed to save device settings %s", mac.toString().c_str());
-            return;
-        }
-
-        StartWorkModePacket startPkt;
-        startPkt.timestamp = millis() / 1000;
-        network.send(mac, startPkt);
-
-        LOG_I(TAG, "Device %s successfully connected and transferred to WORK_MODE", mac.toString().c_str());
-
-        JsonDocument doc = deviceToJson(dev);
-        eventBus.publish(EventType::DEVICE_UPDATED, doc.as<JsonVariantConst>());
-    }
-
-    void removePending(const MacAddress& mac)
-    {
-        for (auto it = pendingPairs.begin(); it != pendingPairs.end(); ++it)
-        {
-            if (it->mac == mac)
-            {
-                pendingPairs.erase(it);
-                break;
-            }
-        }
+        LOG_D(TAG, "Get settings from raw MAC");
+        // ...
     }
 
 public:
-    explicit DeviceController(
-        DeviceRegistry &registry,
-        PairingBuffer &pairingBuff,
-        EspNowManager &net,
-        EventBus &bus) : registry(registry), pairingBuff(pairingBuff), network(net), eventBus(bus) {}
+    explicit DeviceController(EspNowManager &net, EventBus &eventBus) 
+        : network(net), eventBus(eventBus) {}
 
     void begin()
     {
@@ -97,25 +44,45 @@ public:
             });
     }
 
+    PairResult pairDevice(const MacAddress& mac)
+    {
+        auto it = pendingPairs.find(mac);
+
+        if (it != pendingPairs.end())
+        {
+            if (it->second.status == DeviceStatus::CONNECTING) {
+                return PairResult::PAIRING;
+            }
+
+            it->second.status = DeviceStatus::CONNECTING;
+            it->second.lastSeenMs = millis();
+
+            network.addPeer(mac, 0);
+            PairAcceptPacket acceptPkt;
+            network.send(mac, acceptPkt);
+            
+            return PairResult::SUCCESS;
+        }
+
+        return PairResult::NOT_IN_BUFFER;
+    }
+
     void update()
     {
         uint32_t now = millis();
 
-        for (auto it = pendingPairs.begin(); it != pendingPairs.end();)
+        for (auto it = pendingPairs.begin(); it != pendingPairs.end(); )
         {
-            if (now - it->startTimeMs > PAIR_TIMEOUT_MS)
+            if (now - it->second.lastSeenMs > PAIR_TIMEOUT_MS)
             {
-                LOG_W(TAG, "Pairing timeout for device: %s", it->mac.toString().c_str());
-
-                Device failedDev{};
-                failedDev.header.mac = it->mac;
-                failedDev.header.status = DeviceStatus::UNPAIRED;
-
-                JsonDocument doc = deviceToJson(failedDev);
-                doc["error"] = "Таймаут получения настроек";
-                eventBus.publish(EventType::DEVICE_UPDATED, doc.as<JsonVariantConst>());
-
-                registry.remove(it->mac);
+                if (it->second.status == DeviceStatus::UNPAIRED) {
+                    LOG_I(TAG, "Device lost: %s", it->second.mac.toArduinoString().c_str());
+                } else {
+                    LOG_W(TAG, "Pairing timeout for device: %s", it->second.mac.toArduinoString().c_str());
+                    JsonDocument doc = deviceHeaderToJson(it->second);
+                    doc["error"] = "Таймаут получения настроек";
+                    eventBus.publish(EventType::DEVICE_UPDATED, doc.as<JsonVariantConst>());
+                }
 
                 it = pendingPairs.erase(it);
             }
@@ -126,71 +93,54 @@ public:
         }
     }
 
-    PairResult pairDevice(const MacAddress& mac)
+    void onPairRequest(const esp_now_recv_info_t *info, const PairRequestPacket &packet)
     {
-        if (registry.getByMac(mac).has_value())
-        {
-            return PairResult::ALREADY_PAIRED;
-        }
+        MacAddress mac(info->src_addr);
+        auto it = pendingPairs.find(mac);
 
-        const DiscoveredDevice *foundInBuff = nullptr;
-        for (const auto &dev : pairingBuff.getList())
+        if (it != pendingPairs.end())
         {
-            if (dev.device.header.mac ==  mac)
+            if (it->second.status == DeviceStatus::UNPAIRED) 
             {
-                foundInBuff = &dev;
-                break;
+                it->second.lastSeenMs = millis();
+                it->second.sigLevel = info->rx_ctrl->rssi;
             }
+            return;
         }
 
-        if (!foundInBuff)
-        {
-            return PairResult::NOT_IN_BUFFER;
-        }
+        DeviceHeader device;
+        device.mac = mac;
+        device.status = DeviceStatus::UNPAIRED;
+        std::strncpy(device.type, packet.type, sizeof(device.type) - 1);
+        device.type[sizeof(device.type) - 1] = '\0';
+        device.sigLevel = info->rx_ctrl->rssi;
+        device.lastSeenMs = millis();
 
-        Device newDevice{};
-        newDevice.header.mac = foundInBuff->device.header.mac;
-        newDevice.header.type = foundInBuff->device.header.type;
-        newDevice.header.status = DeviceStatus::CONNECTING;
-        newDevice.settings.isValid = false;
+        pendingPairs[mac] = device;
 
-        if (!registry.save(newDevice))
-        {
-            return PairResult::SAVE_FAILED;
-        }
+        LOG_I(TAG, "New device found nearby: %s (%s)",
+              device.mac.toArduinoString().c_str(),
+              device.type);
 
-        network.addPeer(newDevice.header.mac, 0);
+        JsonDocument doc = deviceHeaderToJson(device);
+        eventBus.publish(EventType::DEVICE_DISCOVERED, doc.as<JsonVariantConst>());
+    }
 
-        PairAcceptPacket acceptPkt;
-        network.send(newDevice.header.mac, acceptPkt);
-
-        pairingBuff.remove(mac);
-
-        PendingPairing pending;
-        pending.mac = mac;
-        pending.startTimeMs = millis();
-        pendingPairs.push_back(pending);
-
-        JsonDocument doc = deviceToJson(newDevice);
-        eventBus.publish(EventType::DEVICE_UPDATED, doc.as<JsonVariantConst>());
-
-        return PairResult::SUCCESS;
+    const std::unordered_map<MacAddress, DeviceHeader>& getPendingPairs() const 
+    { 
+        return pendingPairs; 
     }
 
     static String resultToString(PairResult res)
     {
         switch (res)
         {
-        case PairResult::SUCCESS:
-            return "Запрос на подключение отправлен";
-        case PairResult::ALREADY_PAIRED:
-            return "Ошибка: Устройство уже привязано";
-        case PairResult::NOT_IN_BUFFER:
-            return "Ошибка: Устройство не найдено";
-        case PairResult::SAVE_FAILED:
-            return "Ошибка: Не удалось сохранить в NVS";
-        default:
-            return "Неизвестная ошибка";
+        case PairResult::SUCCESS:      return "Запрос на подключение отправлен";
+        case PairResult::PAIRING:      return "Идет подключение";
+        case PairResult::ALREADY_PAIRED: return "Ошибка: Устройство уже привязано";
+        case PairResult::NOT_IN_BUFFER: return "Ошибка: Устройство не найдено";
+        case PairResult::SAVE_FAILED:  return "Ошибка: Не удалось сохранить в NVS";
+        default:                        return "Неизвестная ошибка";
         }
     }
 };
