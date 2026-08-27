@@ -3,14 +3,16 @@
 #include <MacAddress.h>
 #include "ICommand.h"
 #include "host/controllers/DeviceController.h"
-
+#include "host/registry/DeviceRegistry.h"
 
 class DeviceCommand : public ICommand
 {
 private:
     DeviceController &deviceController;
+    DeviceRegistry &deviceRegistry;
 
-    String helpCommand() {
+    String helpCommand()
+    {
         return "Использование:\n"
                "  device list [all|pairing|saved] — список устройств\n"
                "  device connect <MAC> — подключить устройство";
@@ -18,8 +20,7 @@ private:
 
 public:
     explicit DeviceCommand(
-        DeviceController &deviceController
-    ) : deviceController(deviceController) {}
+        DeviceController &deviceController, DeviceRegistry &deviceRegistry) : deviceController(deviceController), deviceRegistry(deviceRegistry) {}
 
     String getName() const override { return "device"; }
     String getDescription() const override { return "device [help|list|connect] — Управление устройствами"; }
@@ -28,14 +29,16 @@ public:
     {
         String action = payload["action"] | payload["args"][0] | "";
 
-        if (action == "help" || action == "") {
+        if (action == "help" || action == "")
+        {
             return {true, helpCommand()};
-        } 
+        }
 
         if (action == "connect" || action == "pair")
         {
             String macStr = payload["mac"] | payload["args"][1] | "";
-            if (macStr.length() == 0) {
+            if (macStr.length() == 0)
+            {
                 return {false, "Укажите MAC-адрес (например: device connect 24:6F:28:AB:CD:12)"};
             }
 
@@ -49,14 +52,27 @@ public:
             return {(res == PairResult::SUCCESS), DeviceController::resultToString(res)};
         }
 
-        if (action == "list") {
-
-            std::unordered_map<MacAddress, DeviceHeader> devices = deviceController.getPendingPairs();
-            for (const auto &[mac, header] : devices)
+        if (action == "list")
+        {
+            String filter = payload["filter"] | payload["args"][2] | "";
+            
+            if (filter == "" || filter == "all")
             {
-                JsonArray savedArr = outData["pairing"].to<JsonArray>();
-                JsonObject obj = savedArr.add<JsonObject>();
-                deviceHeaderToJson(header, obj);
+                auto pendingDevices = deviceController.getPendingPairs();
+                JsonArray pairingArr = outData["pairing"].to<JsonArray>();
+                for (const auto &[mac, header] : pendingDevices)
+                {
+                    JsonObject obj = pairingArr.add<JsonObject>();
+                    deviceHeaderToJson(header, obj);
+                }
+
+                const auto &connectedDevices = deviceRegistry.getAllDevices();
+                JsonArray connectedArr = outData["connected"].to<JsonArray>();
+                for (const auto &device : connectedDevices)
+                {
+                    JsonObject obj = connectedArr.add<JsonObject>();
+                    deviceHeaderToJson(device.header, obj);
+                }
             }
 
             return {true, "OK"};

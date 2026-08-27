@@ -26,7 +26,6 @@ struct DeviceHeader
 
 struct DeviceSettings
 {
-    uint16_t reportIntervalSec;
     uint32_t timeToSleepSec;
     uint8_t wifiPower;
     uint8_t maxSkippedBoots;
@@ -91,7 +90,6 @@ inline void deviceToJson(const Device &dev, JsonObject obj)
     header["lastSeenSecAgo"] = secondsAgo;
 
     JsonObject settings = obj["settings"].to<JsonObject>();
-    settings["reportIntervalSec"] = dev.settings.reportIntervalSec;
     settings["timeToSleepSec"] = dev.settings.timeToSleepSec;
     settings["wifiPower"] = dev.settings.wifiPower;
     settings["maxSkippedBoots"] = dev.settings.maxSkippedBoots;

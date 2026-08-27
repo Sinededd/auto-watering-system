@@ -44,9 +44,18 @@ bool EspNowManager::addPeer(const MacAddress &mac, uint8_t channel)
     esp_now_peer_info_t peerInfo = {};
     memcpy(peerInfo.peer_addr, mac.bytes, 6);
     peerInfo.channel = channel;
+    peerInfo.ifidx = (wifiMode == WIFI_MODE_AP) ? WIFI_IF_AP : WIFI_IF_STA;
     peerInfo.encrypt = false;
 
     return (esp_now_add_peer(&peerInfo) == ESP_OK);
+}
+
+bool EspNowManager::removePeer(const MacAddress &mac)
+{
+    if (!esp_now_is_peer_exist(mac.bytes))
+        return true;
+
+    return (esp_now_del_peer(mac.bytes) == ESP_OK);
 }
 
 void EspNowManager::OnDataSendStatic(const esp_now_send_info_t *tx_info, esp_now_send_status_t status)

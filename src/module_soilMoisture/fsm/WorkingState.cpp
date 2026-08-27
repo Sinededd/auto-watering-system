@@ -25,7 +25,7 @@ void WorkingState::onButtonPressed(DeviceContext &ctx)
 {
 }
 
-void WorkingState::sendTelemetryAndSleep(DeviceContext &ctx, const uint8_t *hostMac)
+void WorkingState::sendTelemetryAndSleep(DeviceContext &ctx, const MacAddress &hostMac)
 {
     // TelemetryPacket packet{  };
     // ctx.getNet().send(hostMac, packet);

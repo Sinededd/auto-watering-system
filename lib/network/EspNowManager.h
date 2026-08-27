@@ -35,6 +35,7 @@ public:
     void setWifiPower(wifi_power_t wifi_power);
 
     bool addPeer(const MacAddress &mac, uint8_t channel = 0);
+    bool removePeer(const MacAddress &mac);
 
     /// @brief Register a handler for a specific packet structure
     template <typename PacketStruct>
@@ -70,6 +71,13 @@ public:
         LOG_D("ESP_NOW_MANAGER", "Sending packet to MAC: %s, size: %zu bytes",
               mac.toString().c_str(),
               sizeof(T));
-        return esp_now_send(mac.bytes, (const uint8_t *)&packet, sizeof(T)) == ESP_OK;
+
+        esp_err_t err = esp_now_send(mac.bytes, (const uint8_t *)&packet, sizeof(T));
+        if (err != ESP_OK) {
+            LOG_E("ESP_NOW_MANAGER", "esp_now_send failed to %s! Error code: 0x%X", 
+                mac.toString().c_str(), err);
+            return false;
+        }
+        return true;
     }
 };

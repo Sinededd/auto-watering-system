@@ -11,6 +11,7 @@
 #include "commands/DeviceCommand.h"
 #include "controllers/HostController.h"
 #include "adapters/WebAdapter.h"
+#include "registry/DeviceRegistry.h"
 
 
 static const char *TAG = "MAIN";
@@ -27,8 +28,9 @@ CliAdapter myCli(cmdRegistry);
 EventBus eventBus;
 
 StorageManager storage;
+DeviceRegistry deviceRegistry(storage);
 
-DeviceController deviceController(netMgr, eventBus);
+DeviceController deviceController(deviceRegistry, netMgr, eventBus);
 HostController controller(netMgr, deviceController);
 
 
@@ -39,6 +41,7 @@ void setup()
 
     led.begin();
     valve.begin();
+    deviceRegistry.begin();
     netMgr.begin();
 
     webAdapter.begin();
@@ -50,7 +53,7 @@ void setup()
     cmdRegistry.registerCommand(std::make_unique<HelpCommand>(cmdRegistry));
     cmdRegistry.registerCommand(std::make_unique<LedCommand>(&led));
     cmdRegistry.registerCommand(std::make_unique<ValveCommand>(&valve));
-    cmdRegistry.registerCommand(std::make_unique<DeviceCommand>(deviceController));
+    cmdRegistry.registerCommand(std::make_unique<DeviceCommand>(deviceController, deviceRegistry));
  
     eventBus.subscribe(EventType::DEVICE_DISCOVERED, [](const JsonVariantConst& payload) {
         myCli.onDeviceDiscovered(payload);

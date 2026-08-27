@@ -8,8 +8,8 @@ Valve::Valve(uint8_t pin, bool activeLow, unsigned long maxDurationMs)
 
 void Valve::begin() {
     pinMode(pin, OUTPUT);
-    close();
     LOG_D(TAG, "Valve initialized on pin %d", pin);
+    close();
 }
 
 void Valve::open() {

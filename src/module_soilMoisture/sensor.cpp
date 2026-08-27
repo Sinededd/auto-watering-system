@@ -1,6 +1,5 @@
 #include "sensor.h"
 #include "config.h"
-#include "settings.h"
 #include <Arduino.h>
 #include "driver/gpio.h"
 
@@ -21,7 +20,7 @@ float readSoilMoisture() {
     gpio_reset_pin((gpio_num_t)SENSOR_ANALOG_PIN);
     DEBUG_PRINTF("[SENSOR] Напряжение на пине: %d мВ\n", analogMilliVolts);
 
-    int moisturePercent = map(analogMilliVolts, r_airValue, r_waterValue, 0, 100);
+    int moisturePercent = map(analogMilliVolts, 3100, 1400, 0, 100);
     moisturePercent = constrain(moisturePercent, 0, 100);
     return (float)moisturePercent;
 }

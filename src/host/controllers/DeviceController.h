@@ -3,9 +3,11 @@
 #include <EspNowManager.h>
 #include <vector>
 #include <MacAddress.h>
+#include "host/registry/DeviceRegistry.h"
 #include <host/events/EventBus.h>
 
-enum class PairResult {
+enum class PairResult
+{
     SUCCESS,
     PAIRING,
     ALREADY_PAIRED,
@@ -19,6 +21,7 @@ private:
     static constexpr const char *TAG = "DeviceController";
     static constexpr uint32_t PAIR_TIMEOUT_MS = 10000;
 
+    DeviceRegistry &deviceRegistry;
     EspNowManager &network;
     EventBus &eventBus;
 
@@ -26,13 +29,35 @@ private:
 
     void handleSettingsReport(const esp_now_recv_info_t *info, const SettingsReportPacket &pkt)
     {
-        LOG_D(TAG, "Get settings from raw MAC");
-        // ...
+        MacAddress mac(info->src_addr);
+        int8_t rssi = info->rx_ctrl->rssi;
+        LOG_I(TAG, "Received settings report from %s", mac.toArduinoString().c_str());
+
+        deviceRegistry.processSettingsReport(mac, rssi, pkt);
+        deviceRegistry.setDeviceStatus(mac, DeviceStatus::ACTIVE);
+
+        StartWorkModePacket workPkt;
+        if (network.send(mac, workPkt))
+        {
+            LOG_D(TAG, "Success work packet to %s", mac.toArduinoString().c_str());
+        }
+        else
+        {
+            LOG_E(TAG, "Error send work packet to %s", mac.toArduinoString().c_str());
+        }
+
+        pendingPairs.erase(mac);
+        Device *dev = deviceRegistry.findDevice(mac);
+        if (dev != nullptr)
+        {
+            JsonDocument doc = deviceHeaderToJson(dev->header);
+            eventBus.publish(EventType::DEVICE_UPDATED, doc.as<JsonVariantConst>());
+        }
     }
 
 public:
-    explicit DeviceController(EspNowManager &net, EventBus &eventBus) 
-        : network(net), eventBus(eventBus) {}
+    explicit DeviceController(DeviceRegistry &deviceRegistry, EspNowManager &net, EventBus &eventBus)
+        : deviceRegistry(deviceRegistry), network(net), eventBus(eventBus) {}
 
     void begin()
     {
@@ -44,23 +69,39 @@ public:
             });
     }
 
-    PairResult pairDevice(const MacAddress& mac)
+    PairResult pairDevice(const MacAddress &mac)
     {
         auto it = pendingPairs.find(mac);
 
         if (it != pendingPairs.end())
         {
-            if (it->second.status == DeviceStatus::CONNECTING) {
+            if (it->second.status == DeviceStatus::CONNECTING)
+            {
                 return PairResult::PAIRING;
             }
 
             it->second.status = DeviceStatus::CONNECTING;
             it->second.lastSeenMs = millis();
 
-            network.addPeer(mac, 0);
+            if (network.addPeer(mac))
+            {
+                LOG_D(TAG, "Success add peer with %s", mac.toString().c_str());
+            }
+            else
+            {
+                LOG_E(TAG, "Error add peer with %s", mac.toString().c_str());
+            }
+
             PairAcceptPacket acceptPkt;
-            network.send(mac, acceptPkt);
-            
+            if (network.send(mac, acceptPkt))
+            {
+                LOG_D(TAG, "Success send accept packet to %s", mac.toString().c_str());
+            }
+            else
+            {
+                LOG_E(TAG, "Error send accept packet to %s", mac.toString().c_str());
+            }
+
             return PairResult::SUCCESS;
         }
 
@@ -71,13 +112,16 @@ public:
     {
         uint32_t now = millis();
 
-        for (auto it = pendingPairs.begin(); it != pendingPairs.end(); )
+        for (auto it = pendingPairs.begin(); it != pendingPairs.end();)
         {
             if (now - it->second.lastSeenMs > PAIR_TIMEOUT_MS)
             {
-                if (it->second.status == DeviceStatus::UNPAIRED) {
+                if (it->second.status == DeviceStatus::UNPAIRED)
+                {
                     LOG_I(TAG, "Device lost: %s", it->second.mac.toArduinoString().c_str());
-                } else {
+                }
+                else
+                {
                     LOG_W(TAG, "Pairing timeout for device: %s", it->second.mac.toArduinoString().c_str());
                     JsonDocument doc = deviceHeaderToJson(it->second);
                     doc["error"] = "Таймаут получения настроек";
@@ -100,7 +144,7 @@ public:
 
         if (it != pendingPairs.end())
         {
-            if (it->second.status == DeviceStatus::UNPAIRED) 
+            if (it->second.status == DeviceStatus::UNPAIRED)
             {
                 it->second.lastSeenMs = millis();
                 it->second.sigLevel = info->rx_ctrl->rssi;
@@ -126,21 +170,27 @@ public:
         eventBus.publish(EventType::DEVICE_DISCOVERED, doc.as<JsonVariantConst>());
     }
 
-    const std::unordered_map<MacAddress, DeviceHeader>& getPendingPairs() const 
-    { 
-        return pendingPairs; 
+    const std::unordered_map<MacAddress, DeviceHeader> &getPendingPairs() const
+    {
+        return pendingPairs;
     }
 
     static String resultToString(PairResult res)
     {
         switch (res)
         {
-        case PairResult::SUCCESS:      return "Запрос на подключение отправлен";
-        case PairResult::PAIRING:      return "Идет подключение";
-        case PairResult::ALREADY_PAIRED: return "Ошибка: Устройство уже привязано";
-        case PairResult::NOT_IN_BUFFER: return "Ошибка: Устройство не найдено";
-        case PairResult::SAVE_FAILED:  return "Ошибка: Не удалось сохранить в NVS";
-        default:                        return "Неизвестная ошибка";
+        case PairResult::SUCCESS:
+            return "Запрос на подключение отправлен";
+        case PairResult::PAIRING:
+            return "Идет подключение";
+        case PairResult::ALREADY_PAIRED:
+            return "Ошибка: Устройство уже привязано";
+        case PairResult::NOT_IN_BUFFER:
+            return "Ошибка: Устройство не найдено";
+        case PairResult::SAVE_FAILED:
+            return "Ошибка: Не удалось сохранить в NVS";
+        default:
+            return "Неизвестная ошибка";
         }
     }
 };

@@ -1,5 +1,6 @@
 #pragma once
 #include "IDeviceState.h"
+#include <MacAddress.h>
 
 class WorkingState : public IDeviceState {
 public:
@@ -8,5 +9,5 @@ public:
     void onButtonPressed(DeviceContext& ctx) override;
 
 private:
-    void sendTelemetryAndSleep(DeviceContext& ctx, const uint8_t* hostMac);
+    void sendTelemetryAndSleep(DeviceContext& ctx, const MacAddress& hostMac);
 };

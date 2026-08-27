@@ -6,7 +6,7 @@
 #include <Led.h>
 
 struct NetworkConfig {
-    uint8_t hostMac[6];
+    MacAddress hostMac;
     uint8_t channel = 0;
     bool isPaired;
 };

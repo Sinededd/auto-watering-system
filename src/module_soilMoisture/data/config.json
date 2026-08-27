@@ -1,0 +1,24 @@
+{
+  "settings": {
+    "timeToSleepSec": 60,
+    "wifiPower": 34,
+    "maxSkippedBoots": 3
+  },
+  "interface": {
+    "metricCount": 1,
+    "metrics": [
+      {
+        "type": 1,
+        "label": "Влажность почвы",
+        "unit": "%",
+        "minVal": 0.0,
+        "maxVal": 100.0,
+        "grid": 0.1,
+        "calib": {
+          "pointsCount": 2,
+          "rawValues": [3100.0, 1400.0]
+        }
+      }
+    ]
+  }
+}

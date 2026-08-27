@@ -1,169 +1,177 @@
-// #pragma once
-// #include <Arduino.h>
-// #include <StorageManager.h>
-// #include <Device.h>
-// #include <optional>
+#pragma once
 
-// struct DeviceContext
-// {
-//     Device device;
-//     uint32_t lastSeenMs = 0;
-// };
+#include <Arduino.h>
+#include <vector>
+#include <optional>
+#include <ArduinoJson.h>
+#include "Device.h"
+#include "Packets.h"
+#include "StorageManager.h"
 
+class DeviceRegistry
+{
+private:
+    static constexpr const char *TAG = "DevReg";
+    static constexpr const char *INDEX_KEY = "dev_index";
+    static constexpr size_t MAX_DEVICES = 16;
 
-// template <size_t MAX_DEVICES = 16>
-// struct DeviceListStorage
-// {
-//     uint8_t count = 0;
-//     DeviceContext items[MAX_DEVICES];
-// };
+    StorageManager &storage;
+    std::vector<Device> devices;
 
+    String makeNvsKey(const MacAddress &mac) const
+    {
+        char buf[15];
+        const uint8_t *b = mac.bytes;
+        snprintf(buf, sizeof(buf), "d_%02X%02X%02X%02X%02X%02X", 
+                 b[0], b[1], b[2], b[3], b[4], b[5]);
+        return String(buf);
+    }
 
-// class DeviceRegistry
-// {
-// private:
-//     static constexpr const char *TAG = "DeviceRegistry";
-//     static constexpr const char *STORAGE_KEY = "dev_list";
-//     using ListType = DeviceListStorage<16>;
+    void saveIndex()
+    {
+        struct MacIndex {
+            uint8_t count;
+            MacAddress macs[MAX_DEVICES];
+        } indexObj{};
 
-//     StorageManager &storage;
-//     ListType cache;
-//     bool isLoaded = false;
+        indexObj.count = min(devices.size(), MAX_DEVICES);
+        for (size_t i = 0; i < indexObj.count; ++i) {
+            indexObj.macs[i] = devices[i].header.mac;
+        }
 
-//     void ensureLoaded()
-//     {
-//         if (!isLoaded)
-//         {
-//             cache = storage.load<ListType>(STORAGE_KEY).value_or(ListType{});
-//             isLoaded = true;
-//         }
-//     }
+        storage.save(INDEX_KEY, indexObj);
+    }
 
-// public:
-//     explicit DeviceRegistry(StorageManager &storageMgr) : storage(storageMgr) {}
+public:
+    explicit DeviceRegistry(StorageManager &mgr) : storage(mgr) {}
 
-//     void begin()
-//     {
-//         ensureLoaded();
-//     }
+    /// @brief Loading all saved devices from NVS to RAM 
+    void begin()
+    {
+        devices.clear();
 
-//     void onPairRequest(const MacAddress &mac)
-//     {
-//         if (registry.getByMac(mac).has_value())
-//         {
-//             return;
-//         }
+        struct MacIndex {
+            uint8_t count;
+            MacAddress macs[MAX_DEVICES];
+        };
 
-//         uint32_t now = millis();
+        auto indexOpt = storage.load<MacIndex>(INDEX_KEY);
+        if (!indexOpt.has_value()) {
+            LOG_I(TAG, "No device index found in NVS");
+            return;
+        }
 
-//         for (auto &item : queue)
-//         {
-//             if (item.device.header.mac == mac)
-//             {
-//                 item.lastSeenMs = now;
-//                 return;
-//             }
-//         }
+        const auto &index = indexOpt.value();
+        for (uint8_t i = 0; i < index.count; ++i) {
+            String key = makeNvsKey(index.macs[i]);
+            auto devOpt = storage.load<Device>(key.c_str());
+            if (devOpt.has_value()) {
+                devices.push_back(devOpt.value());
+                LOG_I(TAG, "Loaded device %s from NVS", index.macs[i].toArduinoString().c_str());
+            }
+        }
+    }
 
-//         DiscoveredDevice item;
-//         item.device.header.mac = mac;
-//         item.device.header.type = type;
-//         item.device.header.status = DeviceStatus::UNPAIRED;
-//         item.device.settings.isValid = false;
-//         item.lastSeenMs = now;
+    /// @brief Find device by MAC
+    Device* findDevice(const MacAddress &mac)
+    {
+        for (auto &dev : devices) {
+            if (dev.header.mac == mac) return &dev;
+        }
+        return nullptr;
+    }
 
-//         queue.push_back(item);
-//         LOG_I(TAG, "New device found nearby: %s (%s)",
-//               item.device.header.mac.toString().c_str(),
-//               deviceTypeToRussian(item.device.header.type).c_str());
+    /// @brief  Process packat SettingsReportPacket (Create or update existing)
+    void processSettingsReport(const MacAddress &mac, int8_t rssi, const SettingsReportPacket &pkt)
+    {
+        Device *dev = findDevice(mac);
+        bool isNew = (dev == nullptr);
 
-//         JsonDocument doc = deviceToJson(item.device);
-//         eventBus.publish(EventType::DEVICE_DISCOVERED, doc.as<JsonVariantConst>());
-//     }
+        if (isNew) {
+            if (devices.size() >= MAX_DEVICES) {
+                LOG_E(TAG, "Device limit reached! Cannot add %s", mac.toArduinoString().c_str());
+                return;
+            }
+            Device newDev{};
+            newDev.header.mac = mac;
+            newDev.header.status = DeviceStatus::CONNECTING;
+            devices.push_back(newDev);
+            dev = &devices.back();
+        }
 
-//     bool save(const Device &device)
-//     {
-//         ensureLoaded();
+        dev->header.sigLevel = rssi;
+        dev->header.lastSeenMs = millis();
 
-//         int foundIndex = -1;
-//         for (uint8_t i = 0; i < cache.count; ++i)
-//         {
-//             if (cache.items[i].header.mac == device.header.mac)
-//             {
-//                 foundIndex = i;
-//                 break;
-//             }
-//         }
+        dev->settings = pkt.settings;
+        dev->interface = pkt.interface;
 
-//         if (foundIndex >= 0)
-//         {
-//             cache.items[foundIndex] = device;
-//         }
-//         else
-//         {
-//             if (cache.count >= 32)
-//             {
-//                 return false;
-//             }
-//             cache.items[cache.count] = device;
-//             cache.count++;
-//         }
+        saveDeviceToNvs(*dev);
 
-//         return storage.save(STORAGE_KEY, cache);
-//     }
+        if (isNew) {
+            saveIndex();
+        }
 
-//     std::optional<Device> getByMac(const MacAddress &mac)
-//     {
-//         ensureLoaded();
+        LOG_I(TAG, "Device %s settings updated & saved to NVS", mac.toArduinoString().c_str());
+    }
 
-//         for (uint8_t i = 0; i < cache.count; ++i)
-//         {
-//             if (cache.items[i].header.mac == mac)
-//             {
-//                 return cache.items[i];
-//             }
-//         }
+    /// @brief Fast telemetry update when receiving any package (RAM only)
+    void updateTelemetry(const MacAddress &mac, int8_t rssi)
+    {
+        Device *dev = findDevice(mac);
+        if (dev) {
+            dev->header.sigLevel = rssi;
+            dev->header.lastSeenMs = millis();
+        }
+    }
 
-//         return std::nullopt;
-//     }
+    /// @brief Change the device status (saved to NVS)
+    bool setDeviceStatus(const MacAddress &mac, DeviceStatus status)
+    {
+        Device *dev = findDevice(mac);
+        if (!dev) return false;
 
-//     bool remove(const MacAddress &mac)
-//     {
-//         ensureLoaded();
+        if (dev->header.status != status) {
+            dev->header.status = status;
+            saveDeviceToNvs(*dev);
+        }
+        return true;
+    }
 
-//         if (cache.count == 0)
-//         {
-//             return false;
-//         }
+    /// @brief Force save device structure in NVS
+    bool saveDeviceToNvs(const Device &dev)
+    {
+        String key = makeNvsKey(dev.header.mac);
+        return storage.save(key.c_str(), dev);
+    }
 
-//         int foundIndex = -1;
-//         for (uint8_t i = 0; i < cache.count; ++i)
-//         {
-//             if (cache.items[i].header.mac == mac)
-//             {
-//                 foundIndex = i;
-//                 break;
-//             }
-//         }
+    /// @brief Remove device from RAM and NVS
+    bool removeDevice(const MacAddress &mac)
+    {
+        for (auto it = devices.begin(); it != devices.end(); ++it) {
+            if (it->header.mac == mac) {
+                String key = makeNvsKey(mac);
+                storage.remove(key.c_str());
+                devices.erase(it);
+                saveIndex();
+                LOG_I(TAG, "Device %s removed", mac.toArduinoString().c_str());
+                return true;
+            }
+        }
+        return false;
+    }
 
-//         if (foundIndex == -1)
-//         {
-//             return false;
-//         }
+    /// @brief Get all devices to serialize into JSON
+    const std::vector<Device>& getAllDevices() const
+    {
+        return devices;
+    }
 
-//         for (uint8_t i = foundIndex; i < cache.count - 1; ++i)
-//         {
-//             cache.items[i] = cache.items[i + 1];
-//         }
-
-//         cache.count--;
-
-//         return storage.save(STORAGE_KEY, cache);
-//     }
-
-//     std::optional<ListType> getAll()
-//     {
-//         ensureLoaded();
-//         return cache;
-//     }
-// };
+    /// @brief Generate a full JSON list of devices for Web/API
+    void toJson(JsonArray array) const
+    {
+        for (const auto &dev : devices) {
+            JsonObject obj = array.add<JsonObject>();
+            deviceToJson(dev, obj);
+        }
+    }
+};

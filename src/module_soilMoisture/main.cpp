@@ -22,8 +22,6 @@ unsigned long lastCalibSignalTime = 0;        // Время последнего
 unsigned long lastCalibDataSent = 0;          // Время последней отправки вольт на хост
 const unsigned long CALIB_TIMEOUT_MS = 60000; // 25 секунд без команд с сайта — и датчик уснет
 
-
-
 // void setup()
 // {
 //     initAndLoadSettings();
@@ -218,6 +216,9 @@ const unsigned long CALIB_TIMEOUT_MS = 60000; // 25 секунд без кома
 #include "fsm/DeviceContext.h"
 #include "fsm/StartState.h"
 #include "Config.h"
+#include "ConfigManager.h"
+
+// SettingsReportPacket currentSettings;
 
 StorageManager storage("sensor_cfg");
 EspNowManager network(WIFI_STA, WIFI_POWER_8_5dBm);
@@ -228,6 +229,8 @@ DeviceContext device(network, storage, led);
 void setup()
 {
     Logger::begin();
+    // ConfigManager::load(currentSettings);
+
     led.begin();
     network.begin();
 
