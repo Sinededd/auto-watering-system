@@ -31,7 +31,6 @@ StorageManager storage;
 DeviceRegistry deviceRegistry(storage);
 
 DeviceController deviceController(deviceRegistry, netMgr, eventBus);
-HostController controller(netMgr, deviceController);
 
 
 void setup()
@@ -48,7 +47,6 @@ void setup()
     server.begin();
 
     deviceController.begin();
-    controller.begin();
     
     cmdRegistry.registerCommand(std::make_unique<HelpCommand>(cmdRegistry));
     cmdRegistry.registerCommand(std::make_unique<LedCommand>(&led));

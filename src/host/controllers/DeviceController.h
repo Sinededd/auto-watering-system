@@ -61,6 +61,13 @@ public:
 
     void begin()
     {
+        network.onPacket<PairRequestPacket>(
+            PacketType::PAIR_REQUEST,
+            [this](const esp_now_recv_info_t *info, const PairRequestPacket &pkt)
+            {
+                this->onPairRequest(info, pkt);
+            });
+
         network.onPacket<SettingsReportPacket>(
             PacketType::SETTINGS_REPORT,
             [this](const esp_now_recv_info_t *info, const SettingsReportPacket &pkt)
