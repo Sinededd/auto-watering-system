@@ -15,15 +15,17 @@ private:
     {
         return "Использование:\n"
                "  device list [all|pairing|saved] — список устройств\n"
-               "  device connect <MAC> — подключить устройство";
+               "  device connect <MAC> — подключить устройство\n"
+               "  device disconnect <MAC> — отключить и удалить устройство";
     }
 
 public:
     explicit DeviceCommand(
-        DeviceController &deviceController, DeviceRegistry &deviceRegistry) : deviceController(deviceController), deviceRegistry(deviceRegistry) {}
+        DeviceController &deviceController, DeviceRegistry &deviceRegistry)
+        : deviceController(deviceController), deviceRegistry(deviceRegistry) {}
 
     String getName() const override { return "device"; }
-    String getDescription() const override { return "device [help|list|connect] — Управление устройствами"; }
+    String getDescription() const override { return "device [help|list|connect|disconnect] — Управление устройствами"; }
 
     CommandResult execute(const JsonVariantConst &payload, JsonDocument &outData) override
     {
@@ -52,10 +54,32 @@ public:
             return {(res == PairResult::SUCCESS), DeviceController::resultToString(res)};
         }
 
+        if (action == "disconnect" || action == "unpair" || action == "remove")
+        {
+            String macStr = payload["mac"] | payload["args"][1] | "";
+            if (macStr.length() == 0)
+            {
+                return {false, "Укажите MAC-адрес (например: device disconnect 24:6F:28:AB:CD:12)"};
+            }
+
+            MacAddress mac;
+            if (!MacAddress::fromString(macStr.c_str(), mac))
+            {
+                return {false, "Неверно указан MAC-адрес"};
+            }
+
+            if (deviceController.disconnectDevice(mac))
+            {
+                return {true, "Устройство успешно отключено и удалено"};
+            }
+
+            return {false, "Устройство с таким MAC-адресом не найдено"};
+        }
+
         if (action == "list")
         {
             String filter = payload["filter"] | payload["args"][2] | "";
-            
+
             if (filter == "" || filter == "all")
             {
                 auto pendingDevices = deviceController.getPendingPairs();

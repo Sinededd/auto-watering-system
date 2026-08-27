@@ -108,6 +108,19 @@ public:
         return PairResult::NOT_IN_BUFFER;
     }
 
+    bool disconnectDevice(const MacAddress &mac)
+    {
+        pendingPairs.erase(mac);
+        network.removePeer(mac);
+
+        bool removed = deviceRegistry.removeDevice(mac);
+
+        if (removed)
+            LOG_I(TAG, "Device %s disconnected and removed", mac.toArduinoString().c_str());
+
+        return removed;
+    }
+
     void update()
     {
         uint32_t now = millis();
