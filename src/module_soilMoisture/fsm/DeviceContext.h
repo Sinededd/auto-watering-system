@@ -4,6 +4,7 @@
 #include "StorageManager.h"
 #include <EspNowManager.h>
 #include <Led.h>
+#include <module_soilMoisture/controllers/SleepController.h>
 
 struct NetworkConfig {
     MacAddress hostMac;
@@ -16,13 +17,14 @@ private:
     EspNowManager& net;
     StorageManager& storage;
     Led& led;
+    SleepController &sleepController;
     static inline RTC_DATA_ATTR RtcCache<NetworkConfig> rtcNetCache;
 
     std::unique_ptr<IDeviceState> currentState;
 
 public:
-    DeviceContext(EspNowManager& netMgr, StorageManager& storageMgr, Led& led)
-        : net(netMgr), storage(storageMgr), led(led) {}
+    DeviceContext(EspNowManager& netMgr, StorageManager& storageMgr, Led& led, SleepController &sleepController)
+        : net(netMgr), storage(storageMgr), led(led), sleepController(sleepController) {}
 
     void begin(std::unique_ptr<IDeviceState> initialState) {
         transitionTo(std::move(initialState));
@@ -51,4 +53,5 @@ public:
     StorageManager& getStorage() { return storage; }
     Led& getLed() {return led; }
     RtcCache<NetworkConfig>* getRtcNetCache() { return &rtcNetCache; }
+    SleepController& getSleepController() { return sleepController; }
 };

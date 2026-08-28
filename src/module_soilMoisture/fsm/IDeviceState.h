@@ -7,7 +7,7 @@ class DeviceContext;
 class IDeviceState
 {  
 protected:
-    static constexpr const char *TAG = "State";
+    static constexpr const char *TAG = "STATE";
 
 public:
     virtual ~IDeviceState() = default;

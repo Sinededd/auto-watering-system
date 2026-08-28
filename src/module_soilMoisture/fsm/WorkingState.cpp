@@ -2,6 +2,7 @@
 #include "PairingState.h"
 #include "DeviceContext.h"
 #include <Logger.h>
+#include <driver/rtc_io.h>
 
 void WorkingState::onEnter(DeviceContext &ctx)
 {
@@ -12,7 +13,8 @@ void WorkingState::onEnter(DeviceContext &ctx)
     {
         ctx.getNet().addPeer(netCfg->hostMac, netCfg->channel);
 
-        sendTelemetryAndSleep(ctx, netCfg->hostMac);
+        sendTelemetry(ctx, netCfg->hostMac);
+        ctx.getSleepController().goToSleep();
     }
     else
     {
@@ -23,15 +25,13 @@ void WorkingState::onEnter(DeviceContext &ctx)
 
 void WorkingState::onButtonPressed(DeviceContext &ctx)
 {
+    
 }
 
-void WorkingState::sendTelemetryAndSleep(DeviceContext &ctx, const MacAddress &hostMac)
+void WorkingState::sendTelemetry(DeviceContext &ctx, const MacAddress &hostMac)
 {
     // TelemetryPacket packet{  };
     // ctx.getNet().send(hostMac, packet);
 
-    LOG_I(TAG, "Data sent. Going to Deep Sleep");
-    esp_sleep_enable_timer_wakeup(10 * 1000000ULL);
-    Logger::flush();
-    esp_deep_sleep_start();
+    
 }

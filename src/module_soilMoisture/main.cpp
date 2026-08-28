@@ -217,6 +217,7 @@ const unsigned long CALIB_TIMEOUT_MS = 60000; // 25 секунд без кома
 #include "fsm/StartState.h"
 #include "Config.h"
 #include "ConfigManager.h"
+#include "controllers/SleepController.h"
 
 // SettingsReportPacket currentSettings;
 
@@ -224,17 +225,17 @@ StorageManager storage("sensor_cfg");
 EspNowManager network(WIFI_STA, WIFI_POWER_8_5dBm);
 Led led(LED_PIN, true);
 
-DeviceContext device(network, storage, led);
+SleepController sleepController(GPIO_NUM_4, 10);
+DeviceContext device(network, storage, led, sleepController);
 
 void setup()
 {
     Logger::begin();
     // ConfigManager::load(currentSettings);
-
     led.begin();
     network.begin();
 
-    device.begin(std::make_unique<StartState>());
+    sleepController.wakeUp(device);
 }
 
 void loop()
