@@ -3,7 +3,6 @@
 #include "WorkingState.h"
 #include <WiFi.h>
 #include <Logger.h>
-#include <module_soilMoisture/ConfigManager.h>
 
 void PairingState::handlePairRequest(DeviceContext &ctx, const esp_now_recv_info_t *info, const PairAcceptPacket &packet)
 {
@@ -15,7 +14,6 @@ void PairingState::handlePairRequest(DeviceContext &ctx, const esp_now_recv_info
 
     sendSettingsReport(ctx);
 
-    
     sendSettings = true;
 
     uint32_t now = millis();
@@ -40,7 +38,8 @@ void PairingState::handleConnectRequest(DeviceContext &ctx, const esp_now_recv_i
 void PairingState::sendSettingsReport(DeviceContext &ctx)
 {
     SettingsReportPacket currentSettings;
-    ConfigManager::load(currentSettings);
+    currentSettings.settings = AppConfig::settings();
+    currentSettings.interface = AppConfig::interface();
     ctx.getNet().send(hostMac, currentSettings);
 }
 
@@ -53,7 +52,6 @@ void PairingState::onEnter(DeviceContext &ctx)
     ctx.getNet().onPacket<PairAcceptPacket>(
         PacketType::PAIR_ACCEPT,
         std::bind(&PairingState::handlePairRequest, this, std::ref(ctx), std::placeholders::_1, std::placeholders::_2));
-
 
     ctx.getNet().onPacket<StartWorkModePacket>(
         PacketType::START_WORK_MODE,

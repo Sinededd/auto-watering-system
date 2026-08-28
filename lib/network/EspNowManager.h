@@ -38,6 +38,13 @@ public:
     bool addPeer(const MacAddress &mac, uint8_t channel = 0);
     bool removePeer(const MacAddress &mac);
 
+    /// @brief Changing MAC addresses to random with ESP-NOW restarting
+    bool randomizeMacAddress();
+    bool applyMacAddress();
+
+    /// @brief Get the current MAC address of your device
+    MacAddress getMacAddress() const;
+
     /// @brief Register a handler for a specific packet structure
     template <typename PacketStruct>
     void onPacket(PacketType type, std::function<void(const esp_now_recv_info_t *esp_now_info, const PacketStruct &packet)> cb)

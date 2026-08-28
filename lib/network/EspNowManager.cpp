@@ -1,8 +1,12 @@
 #include "EspNowManager.h"
 #include <WiFiType.h>
 #include <WiFi.h>
+#include <esp_wifi.h>
+#include <Preferences.h>
 
 static const char *TAG = "ESP_NOW_MANAGER";
+constexpr const char *NVS_NAMESPACE = "esp_net";
+constexpr const char *MAC_KEY = "custom_mac";
 
 EspNowManager *EspNowManager::instance = nullptr;
 
@@ -25,6 +29,24 @@ void EspNowManager::setWifiPower(uint8_t wifi_power)
 bool EspNowManager::begin()
 {
     WiFi.mode(wifiMode);
+
+    Preferences prefs;
+    if (prefs.begin(NVS_NAMESPACE, true))
+    {
+        uint8_t savedMac[6];
+        size_t macLen = prefs.getBytes(MAC_KEY, savedMac, sizeof(savedMac));
+        prefs.end();
+
+        if (macLen == 6)
+        {
+            esp_wifi_stop();
+            esp_wifi_set_mac(WIFI_IF_STA, savedMac);
+            esp_wifi_start();
+
+            LOG_I(TAG, "Restored custom MAC from NVS: %02X:%02X:%02X:%02X:%02X:%02X",
+                  savedMac[0], savedMac[1], savedMac[2], savedMac[3], savedMac[4], savedMac[5]);
+        }
+    }
 
     if (esp_now_init() != ESP_OK)
     {
@@ -63,6 +85,81 @@ bool EspNowManager::removePeer(const MacAddress &mac)
     return (esp_now_del_peer(mac.bytes) == ESP_OK);
 }
 
+/// @brief Generate new mac adress and save it to memory
+/// @note To apply new mac reload device (ESP.reload()) or call applyMacAddress function
+bool EspNowManager::randomizeMacAddress()
+{
+    uint8_t newMac[6];
+    esp_fill_random(newMac, 6);
+    newMac[0] = (newMac[0] & 0xFE) | 0x02;
+
+    Preferences prefs;
+    if (prefs.begin(NVS_NAMESPACE, false))
+    {
+        prefs.putBytes(MAC_KEY, newMac, sizeof(newMac));
+        prefs.end();
+        LOG_I(TAG, "New MAC saved to NVS Flash");
+        return true;
+    }
+    
+    LOG_E(TAG, "Failed to open NVS namespace for writing!");
+    return false;
+}
+
+/// @brief Apply mac address from memory.
+bool EspNowManager::applyMacAddress()
+{
+    Preferences prefs;
+    if (!prefs.begin(NVS_NAMESPACE, true))
+    {
+        LOG_E(TAG, "Failed to open NVS namespace for reading!");
+        return false;
+    }
+
+    uint8_t savedMac[6];
+    size_t macLen = prefs.getBytes(MAC_KEY, savedMac, sizeof(savedMac));
+    prefs.end();
+
+    if (macLen != 6)
+    {
+        LOG_E(TAG, "Failed to read valid mac address from NVS");
+        return false;
+    }
+
+    esp_now_deinit();
+    esp_wifi_stop();
+
+    esp_err_t err = esp_wifi_set_mac(WIFI_IF_STA, savedMac);
+
+    esp_wifi_start();
+    if (esp_now_init() != ESP_OK)
+    {
+        LOG_E(TAG, "Failed to re-initialize ESP-NOW");
+        return false;
+    }
+
+    WiFi.setTxPower(wifiPower);
+    esp_now_register_send_cb(OnDataSendStatic);
+    esp_now_register_recv_cb(OnDataRecvStatic);
+
+    if (err == ESP_OK)
+    {
+        LOG_I(TAG, "Applied MAC: %02X:%02X:%02X:%02X:%02X:%02X",
+              savedMac[0], savedMac[1], savedMac[2], savedMac[3], savedMac[4], savedMac[5]);
+        return true;
+    }
+
+    LOG_E(TAG, "Failed to apply MAC address: 0x%X", err);
+    return false;
+}
+
+MacAddress EspNowManager::getMacAddress() const
+{
+    uint8_t mac[6];
+    esp_wifi_get_mac(WIFI_IF_STA, mac);
+    return MacAddress(mac);
+}
+
 void EspNowManager::OnDataSendStatic(const esp_now_send_info_t *tx_info, esp_now_send_status_t status)
 {
     if (status == ESP_NOW_SEND_SUCCESS)
@@ -91,7 +188,7 @@ void EspNowManager::handleReceive(const esp_now_recv_info_t *esp_now_info, const
     auto it = handlers.find(header->type);
     if (it != handlers.end())
     {
-        RawPacketHandler handlerCopy = it->second; 
+        RawPacketHandler handlerCopy = it->second;
         handlerCopy(esp_now_info, data, len);
     }
 }

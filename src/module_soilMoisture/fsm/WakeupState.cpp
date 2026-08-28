@@ -7,6 +7,7 @@
 void WakeupState::onEnter(DeviceContext &ctx)
 {
     LOG_I(TAG, "Entered WAKEUP state.");
+    ctx.getLed().turnOn();
     auto netCfg = ctx.getStorage().load<NetworkConfig>("net_cfg", ctx.getRtcNetCache());
     if (netCfg.has_value())
     {

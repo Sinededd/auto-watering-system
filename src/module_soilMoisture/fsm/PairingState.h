@@ -6,7 +6,7 @@
 class PairingState : public IDeviceState
 {
 private:
-    static constexpr const char *TAG = "PairingState";
+    static constexpr const char *TAG = "PAIRING_STATE";
     uint32_t lastBroadcastMs = 0;
     uint32_t sendSettingsStartMs = 0;
     bool sendSettings = false;
