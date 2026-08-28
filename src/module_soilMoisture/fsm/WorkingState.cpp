@@ -13,7 +13,8 @@ void WorkingState::onEnter(DeviceContext &ctx)
     {
         ctx.getNet().addPeer(netCfg->hostMac, netCfg->channel);
 
-        sendTelemetry(ctx, netCfg->hostMac);
+        ctx.getTelemetryController().sendTelemetry(netCfg->hostMac);
+
         ctx.getSleepController().goToSleep();
     }
     else
@@ -25,13 +26,5 @@ void WorkingState::onEnter(DeviceContext &ctx)
 
 void WorkingState::onButtonPressed(DeviceContext &ctx)
 {
-    
-}
-
-void WorkingState::sendTelemetry(DeviceContext &ctx, const MacAddress &hostMac)
-{
-    // TelemetryPacket packet{  };
-    // ctx.getNet().send(hostMac, packet);
-
     
 }

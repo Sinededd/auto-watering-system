@@ -226,7 +226,8 @@ EspNowManager network(WIFI_STA, WIFI_POWER_8_5dBm);
 Led led(LED_PIN, true);
 
 SleepController sleepController(GPIO_NUM_4, 10);
-DeviceContext device(network, storage, led, sleepController);
+TelemetryController telemetryController(network);
+DeviceContext device(network, storage, led, sleepController, telemetryController);
 
 void setup()
 {
