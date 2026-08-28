@@ -1,6 +1,6 @@
 {
   "settings": {
-    "timeToSleepSec": 15,
+    "timeToSleepSec": 60,
     "wifiPower": 34,
     "maxSkippedBoots": 3
   },
