@@ -62,3 +62,22 @@ void Led::update() {
         }
     }
 }
+
+void Led::blinkBlocking(unsigned int times, uint32_t intervalMs) {
+    isBlinking = false;
+
+    for (unsigned int i = 0; i < times; ++i) {
+        setRawState(true);
+        delay(intervalMs);
+        setRawState(false);
+        delay(intervalMs);
+    }
+}
+
+void Led::slowBlinkingBlocking(unsigned int times) {
+    blinkBlocking(times, 1000);
+}
+
+void Led::fastBlinkingBlocking(unsigned int times) {
+    blinkBlocking(times, 200);
+}

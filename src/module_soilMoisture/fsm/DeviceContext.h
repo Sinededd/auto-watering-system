@@ -36,7 +36,7 @@ private:
     void executeFullReset()
     {
         LOG_I(TAG, "!!!RESET DEVICE TO FACTORY!!!");
-
+        led.fastBlinkingBlocking(5);
         AppConfig::resetToFactory();
         net.randomizeMacAddress();
         storage.remove<NetworkConfig>("net_cfg", &rtcNetCache);

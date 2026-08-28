@@ -14,6 +14,7 @@ private:
 
     /// @brief Sets state of the LED directly without affecting the blinking state.
     void setRawState(bool state);
+    void blinkBlocking(unsigned int times, uint32_t intervalMs);
 public:
     Led(uint8_t pin, bool activeLow = false);
 
@@ -33,4 +34,10 @@ public:
 
     void fastBlinking(unsigned int times = 0);
     void slowBlinking(unsigned int times = 0);
+
+    /// @brief Slow blinking blocking thread
+    void slowBlinkingBlocking(unsigned int times);
+
+    /// @brief Fast blinking blocking thread
+    void fastBlinkingBlocking(unsigned int times);
 };
