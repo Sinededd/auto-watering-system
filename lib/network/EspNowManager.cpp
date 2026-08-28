@@ -17,6 +17,11 @@ void EspNowManager::setWifiPower(wifi_power_t wifi_power)
     WiFi.setTxPower(wifi_power);
 }
 
+void EspNowManager::setWifiPower(uint8_t wifi_power)
+{
+    setWifiPower(static_cast<wifi_power_t>(wifi_power));
+}
+
 bool EspNowManager::begin()
 {
     WiFi.mode(wifiMode);

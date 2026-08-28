@@ -5,18 +5,17 @@
 #include <module_soilMoisture/fsm/StartState.h>
 #include <module_soilMoisture/fsm/WorkingState.h>
 #include <module_soilMoisture/fsm/WakeupState.h>
+#include <module_soilMoisture/AppConfig.h>
 
-SleepController::SleepController(uint32_t defaultTimeSec)
+SleepController::SleepController()
 {
     this->hasWakeUpButton = false;
-    this->defaultTimeSec = defaultTimeSec;
 }
 
-SleepController::SleepController(gpio_num_t wakeupButton, uint32_t defaultTimeSec)
+SleepController::SleepController(gpio_num_t wakeupButton)
 {
     this->hasWakeUpButton = true;
     this->buttonPin = wakeupButton;
-    this->defaultTimeSec = defaultTimeSec;
 }
 
 void SleepController::wakeUp(DeviceContext &device)
@@ -50,7 +49,7 @@ void SleepController::goToSleep(uint32_t timeSec)
     }
 
     if (timeSec == 0)
-        timeSec = defaultTimeSec;
+        timeSec = AppConfig::sleepTime();
 
     esp_sleep_enable_timer_wakeup(static_cast<uint64_t>(timeSec) * 1000000ULL);
 

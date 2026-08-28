@@ -9,11 +9,10 @@ private:
 
     bool hasWakeUpButton = false;
     gpio_num_t buttonPin;
-    uint32_t defaultTimeSec;
 
 public:
-    SleepController(uint32_t defaultTimeSec = 300);
-    SleepController(gpio_num_t wakeupButton, uint32_t defaultTimeSec = 300);
+    SleepController();
+    SleepController(gpio_num_t wakeupButton);
 
     void wakeUp(DeviceContext &device);
     void goToSleep(uint32_t timeSec = 0);

@@ -33,6 +33,7 @@ public:
 
     wifi_power_t getWifiPower() { return wifiPower; }
     void setWifiPower(wifi_power_t wifi_power);
+    void setWifiPower(uint8_t wifi_power);
 
     bool addPeer(const MacAddress &mac, uint8_t channel = 0);
     bool removePeer(const MacAddress &mac);
