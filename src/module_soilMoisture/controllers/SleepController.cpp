@@ -22,7 +22,7 @@ void SleepController::wakeUp(DeviceContext &device)
 {
     esp_sleep_wakeup_cause_t wakeupReason = esp_sleep_get_wakeup_cause();
 
-    if (wakeupReason == ESP_SLEEP_WAKEUP_EXT0)
+    if (wakeupReason == ESP_SLEEP_WAKEUP_GPIO)
     {
         LOG_I(TAG, "Woken up by BUTTON press!");
         device.getLed().turnOn();
