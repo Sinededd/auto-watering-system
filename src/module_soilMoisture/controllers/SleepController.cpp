@@ -4,6 +4,7 @@
 #include <module_soilMoisture/fsm/DeviceContext.h>
 #include <module_soilMoisture/fsm/StartState.h>
 #include <module_soilMoisture/fsm/WorkingState.h>
+#include <module_soilMoisture/fsm/WakeupState.h>
 
 SleepController::SleepController(uint32_t defaultTimeSec)
 {
@@ -25,7 +26,7 @@ void SleepController::wakeUp(DeviceContext &device)
     if (wakeupReason == ESP_SLEEP_WAKEUP_GPIO)
     {
         LOG_I(TAG, "Woken up by BUTTON press!");
-        device.getLed().turnOn();
+        device.begin(std::make_unique<WakeupState>());
     }
     else if (wakeupReason == ESP_SLEEP_WAKEUP_TIMER)
     {
