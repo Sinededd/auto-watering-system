@@ -31,6 +31,7 @@ StorageManager storage;
 DeviceRegistry deviceRegistry(storage);
 
 DeviceController deviceController(deviceRegistry, netMgr, eventBus);
+HostController hostController(deviceRegistry, eventBus, netMgr);
 
 
 void setup()
@@ -47,6 +48,7 @@ void setup()
     server.begin();
 
     deviceController.begin();
+    hostController.begin();
     
     cmdRegistry.registerCommand(std::make_unique<HelpCommand>(cmdRegistry));
     cmdRegistry.registerCommand(std::make_unique<LedCommand>(&led));
@@ -63,6 +65,10 @@ void setup()
 
     eventBus.subscribe(EventType::DEVICE_UPDATED, [](const JsonVariantConst& payload) {
         myCli.onDeviceUpdate(payload);
+    });
+
+    eventBus.subscribe(EventType::DEVICE_TELEMETRY, [](const JsonVariantConst& payload) {
+        myCli.onDeviceTelemetry(payload);
     });
 
     eventBus.subscribe(EventType::DEVICE_DISCOVERED, [](const JsonVariantConst& payload) {

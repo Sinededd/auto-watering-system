@@ -9,8 +9,14 @@
 template <typename T>
 struct RtcCache
 {
-    bool isValid;
+    static constexpr uint32_t RTC_MAGIC = 0x5A5A1234;
+
+    uint32_t magic;
     T data;
+
+    bool isValid() const { return magic == RTC_MAGIC; }
+    void validate() { magic = RTC_MAGIC; }
+    void invalidate() { magic = 0; }
 };
 
 class StorageManager
@@ -30,7 +36,7 @@ public:
     bool saveRtc(const T &value, RtcCache<T> &rtcCache)
     {
         rtcCache.data = value;
-        rtcCache.isValid = true;
+        rtcCache.validate();
         LOG_D(TAG, "Data saved directly to RTC SRAM (%u bytes)", (unsigned)sizeof(T));
         return true;
     }
@@ -41,7 +47,7 @@ public:
     template <typename T>
     std::optional<T> loadRtc(const RtcCache<T> &rtcCache)
     {
-        if (rtcCache.isValid)
+        if (rtcCache.isValid())
         {
             LOG_D(TAG, "Data loaded from RTC SRAM (%u bytes)", (unsigned)sizeof(T));
             return rtcCache.data;
@@ -75,7 +81,7 @@ public:
             if (rtcCache != nullptr)
             {
                 rtcCache->data = value;
-                rtcCache->isValid = true;
+                rtcCache->validate();
                 LOG_D(TAG, "Key '%s' cached to RTC SRAM", key);
             }
         }
@@ -96,7 +102,7 @@ public:
     {
         static_assert(std::is_trivially_copyable<T>::value, "Type must be trivially copyable!");
 
-        if (rtcCache != nullptr && rtcCache->isValid)
+        if (rtcCache != nullptr && rtcCache->isValid())
         {
             LOG_D(TAG, "RTC cache hit for key '%s'", key);
             return rtcCache->data;
@@ -104,7 +110,7 @@ public:
 
         if (!prefs.begin(nsName, true))
         {
-            LOG_E(TAG, "Failed to open NVS namespace '%s' in ReadOnly mode", nsName);
+            LOG_W(TAG, "NVS namespace '%s' not found or not initialized", nsName);
             return std::nullopt;
         }
 
@@ -136,7 +142,7 @@ public:
             if (rtcCache != nullptr)
             {
                 rtcCache->data = loadedValue;
-                rtcCache->isValid = true;
+                rtcCache->validate();
                 LOG_D(TAG, "Key '%s' cached into RTC SRAM", key);
             }
             return loadedValue;
@@ -149,7 +155,7 @@ public:
     template <typename T>
     void invalidate(RtcCache<T> &rtcCache)
     {
-        rtcCache.isValid = false;
+        rtcCache.invalidate();
         LOG_D(TAG, "RTC cache invalidated");
     }
 
@@ -159,7 +165,7 @@ public:
     {
         if (rtcCache != nullptr)
         {
-            rtcCache->isValid = false;
+            rtcCache->invalidate();
             LOG_D(TAG, "RTC cache invalidated for key '%s'", key);
         }
 

@@ -48,20 +48,45 @@ public:
     explicit CliAdapter(CommandRegistry& reg) : registry(reg) {}
 
     void onDeviceDiscovered(const JsonVariantConst& payload) {
-        Serial.printf("\n[CLI EVENT] Найдено новое устройство: %s (Тип: %s)\n> ", 
+        Serial.printf("\n[CLI EVENT] Найдено новое устройство: %s (Тип: %s)\n", 
                       payload["mac"].as<const char*>(),
                       payload["type"].as<const char*>());
     }
 
     void onDeviceLost(const JsonVariantConst& payload) {
-        Serial.printf("\n[CLI EVENT] Устройство пропало: %s\n> ", 
+        Serial.printf("\n[CLI EVENT] Устройство пропало: %s\n", 
                       payload["mac"].as<const char*>());
     }
 
     void onDeviceUpdate(const JsonVariantConst& payload) {
-        Serial.printf("\n[CLI EVENT] Изменился статус устройства: %s (Статус: %d)\n> ", 
+        Serial.printf("\n[CLI EVENT] Изменился статус устройства: %s (Статус: %d)\n", 
                     payload["mac"].as<const char*>(),
                     payload["status"].as<uint8_t>());
+    }
+
+    void onDeviceTelemetry(const JsonVariantConst& payload) 
+    {
+        const char* mac = payload["mac"] | "00:00:00:00:00:00";
+        uint8_t status = payload["status"] | 0;
+        const char* statusStr = payload["statusStr"] | "UNKNOWN";
+        int rssi = payload["sigLevel"] | 0;
+        uint32_t lastSeenSec = payload["lastSeenSecAgo"] | 0;
+
+        Serial.printf("\n[CLI EVENT] Устройство: %s | Статус: %s (%u) | RSSI: %d dBm | Был в сети: %u с. назад\n", 
+                    mac, statusStr, status, rssi, lastSeenSec);
+
+        JsonArrayConst values = payload["values"].as<JsonArrayConst>();
+        if (!values.isNull() && values.size() > 0) 
+        {
+            Serial.print("  [Данные]: ");
+            for (size_t i = 0; i < values.size(); ++i) 
+            {
+                Serial.printf("val[%d]: %.2f%s", 
+                            i, 
+                            values[i].as<float>(), 
+                            (i < values.size() - 1) ? " | " : "\n");
+            }
+        }
     }
 
     void update() {

@@ -13,7 +13,7 @@
 struct NetworkConfig
 {
     MacAddress hostMac;
-    uint8_t channel = 0;
+    uint8_t channel;
     bool isPaired;
 };
 
@@ -29,7 +29,7 @@ private:
     SleepController &sleepController;
     TelemetryController &telemetryController;
 
-    static inline RTC_DATA_ATTR RtcCache<NetworkConfig> rtcNetCache;
+    static RtcCache<NetworkConfig> rtcNetCache;
 
     std::unique_ptr<IDeviceState> currentState;
 
@@ -90,7 +90,7 @@ public:
     EspNowManager &getNet() { return net; }
     StorageManager &getStorage() { return storage; }
     Led &getLed() { return led; }
-    RtcCache<NetworkConfig> *getRtcNetCache() { return &rtcNetCache; }
+    RtcCache<NetworkConfig>* getRtcNetCache() { return &rtcNetCache; }
     SleepController &getSleepController() { return sleepController; }
     TelemetryController &getTelemetryController() { return telemetryController; }
 };

@@ -51,11 +51,15 @@ void PairingState::onEnter(DeviceContext &ctx)
 
     ctx.getNet().onPacket<PairAcceptPacket>(
         PacketType::PAIR_ACCEPT,
-        std::bind(&PairingState::handlePairRequest, this, std::ref(ctx), std::placeholders::_1, std::placeholders::_2));
+        [this, &ctx](const esp_now_recv_info_t *info, const PairAcceptPacket &packet) {
+            this->handlePairRequest(ctx, info, packet);
+        });
 
     ctx.getNet().onPacket<StartWorkModePacket>(
         PacketType::START_WORK_MODE,
-        std::bind(&PairingState::handleConnectRequest, this, std::ref(ctx), std::placeholders::_1, std::placeholders::_2));
+        [this, &ctx](const esp_now_recv_info_t *info, const StartWorkModePacket &packet) {
+            this->handleConnectRequest(ctx, info, packet);
+        });
 
     ctx.getNet().addPeer(BROADCAST_MAC);
 }

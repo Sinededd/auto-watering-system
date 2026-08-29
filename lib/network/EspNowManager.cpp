@@ -44,6 +44,7 @@ bool EspNowManager::begin()
     }
     else
     {
+        LOG_I(TAG, "Restored MAC from NVS");
         Preferences prefs;
         if (prefs.begin(NVS_NAMESPACE, true))
         {
@@ -57,6 +58,9 @@ bool EspNowManager::begin()
                 hasMacToApply = true;
                 LOG_I(TAG, "Restored MAC from NVS Flash");
             }
+        }
+        else {
+            LOG_E(TAG, "Error restoring MAC from NVS");
         }
     }
 
@@ -88,7 +92,11 @@ bool EspNowManager::begin()
 bool EspNowManager::addPeer(const MacAddress &mac, uint8_t channel)
 {
     if (esp_now_is_peer_exist(mac.bytes))
+    {
+        LOG_D(TAG, "Peer %s is already added", mac.toString().c_str());
         return true;
+    }
+        
 
     esp_now_peer_info_t peerInfo = {};
     memcpy(peerInfo.peer_addr, mac.bytes, 6);
@@ -96,7 +104,16 @@ bool EspNowManager::addPeer(const MacAddress &mac, uint8_t channel)
     peerInfo.ifidx = (wifiMode == WIFI_MODE_AP) ? WIFI_IF_AP : WIFI_IF_STA;
     peerInfo.encrypt = false;
 
-    return (esp_now_add_peer(&peerInfo) == ESP_OK);
+    esp_err_t err = esp_now_add_peer(&peerInfo);
+    if(err == ESP_OK) {
+        LOG_D(TAG, "Peer %s was successfully added", mac.toString().c_str());
+        return true;
+    }
+    else 
+    {
+        LOG_E(TAG, "Failed to add a peer: %s (%s)", mac.toString().c_str(), esp_err_to_name(err));
+        return false;
+    }
 }
 
 bool EspNowManager::removePeer(const MacAddress &mac)

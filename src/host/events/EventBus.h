@@ -9,7 +9,8 @@
 enum class EventType {
     DEVICE_DISCOVERED,
     DEVICE_UPDATED,
-    DEVICE_LOST
+    DEVICE_LOST,
+    DEVICE_TELEMETRY
 };
 
 class EventBus {

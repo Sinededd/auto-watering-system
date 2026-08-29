@@ -147,7 +147,7 @@ public:
 
         if (loaded.has_value())
         {
-            LOG_I(TAG, "Config loaded from %s", _rtcCache.isValid ? "RTC RAM" : "NVS Flash");
+            LOG_I(TAG, "Config loaded from %s", _rtcCache.isValid() ? "RTC RAM" : "NVS Flash");
             _initialized = true;
             return true;
         }

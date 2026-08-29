@@ -14,7 +14,7 @@ enum class PacketType : uint8_t
     PAIR_ACCEPT,
     SETTINGS_REPORT,
     START_WORK_MODE,
-    DATA_REPORT
+    TELEMETRY_REPORT
 };
 
 struct PacketHeader
@@ -38,9 +38,9 @@ struct SettingsReportPacket
     DeviceInterface interface;
 };
 
-struct DataReportPacket
+struct TelemetryPacket
 {
-    PacketHeader packet = {PacketType::DATA_REPORT};
+    PacketHeader packet = {PacketType::TELEMETRY_REPORT};
     uint8_t count;
     float values[3];
 };

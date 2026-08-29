@@ -6,7 +6,7 @@
 #include <cstdio>
 
 struct MacAddress {
-    uint8_t bytes[6]{0};
+    uint8_t bytes[6];
 
     MacAddress() = default;
     

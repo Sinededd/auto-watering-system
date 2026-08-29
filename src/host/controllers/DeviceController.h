@@ -18,7 +18,7 @@ enum class PairResult
 class DeviceController
 {
 private:
-    static constexpr const char *TAG = "DeviceController";
+    static constexpr const char *TAG = "DEVICE_CONTROLLER";
     static constexpr uint32_t PAIR_TIMEOUT_MS = 10000;
 
     DeviceRegistry &deviceRegistry;
