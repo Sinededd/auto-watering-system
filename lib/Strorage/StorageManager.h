@@ -5,6 +5,7 @@
 #include <type_traits>
 #include <optional>
 #include <Logger.h>
+#include <nvs.h>
 
 template <typename T>
 struct RtcCache
@@ -39,6 +40,35 @@ public:
         rtcCache.validate();
         LOG_D(TAG, "Data saved directly to RTC SRAM (%u bytes)", (unsigned)sizeof(T));
         return true;
+    }
+
+    /// @brief Get all keys stored in the current NVS namespace.
+    std::vector<std::string> getAllKeys()
+    {
+        std::vector<std::string> keys;
+
+        if (!prefs.begin(nsName, true))
+        {
+            LOG_W(TAG, "Namespace '%s' does not exist or NVS not ready", nsName);
+            return keys;
+        }
+        prefs.end();
+
+        nvs_iterator_t it = nullptr;
+        esp_err_t res = nvs_entry_find(NVS_DEFAULT_PART_NAME, nsName, NVS_TYPE_ANY, &it);
+
+        while (res == ESP_OK && it != nullptr)
+        {
+            nvs_entry_info_t info;
+            nvs_entry_info(it, &info);
+            keys.push_back(info.key);
+
+            res = nvs_entry_next(&it);
+        }
+
+        nvs_release_iterator(it);
+        LOG_D(TAG, "Found %u keys in NVS namespace '%s'", (unsigned)keys.size(), nsName);
+        return keys;
     }
 
     /// @brief Load data directly from RTC memory.
