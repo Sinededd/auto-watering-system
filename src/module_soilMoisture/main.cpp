@@ -37,4 +37,5 @@ void loop()
 {
     led.update();
     device.update();
+    vTaskDelay(pdMS_TO_TICKS(10));
 }
