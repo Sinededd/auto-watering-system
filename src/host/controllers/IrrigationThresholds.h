@@ -104,4 +104,9 @@ public:
         thresholdsOfSensorTypes.erase(type);
         return storage.remove(type.c_str());
     }
+
+    const std::unordered_map<std::string, Thresholds>& getAllThresholds() const
+    {
+        return thresholdsOfSensorTypes;
+    }
 };

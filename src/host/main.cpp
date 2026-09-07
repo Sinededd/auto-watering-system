@@ -20,6 +20,7 @@
 
 #include "adapters/CliAdapter.h"
 #include "adapters/WebAdapter.h"
+#include "commands/ThresholdCommand.h"
 
 static const char *TAG = "MAIN";
 
@@ -70,6 +71,7 @@ void setup()
     cmdRegistry.registerCommand(std::make_unique<ValveCommand>(&valve));
     cmdRegistry.registerCommand(std::make_unique<DeviceCommand>(deviceController, deviceRegistry));
     cmdRegistry.registerCommand(std::make_unique<SensorCommand>(sensorAggregator));
+    cmdRegistry.registerCommand(std::make_unique<ThresholdCommand>(thresholds));
  
     eventBus.subscribe(EventType::DEVICE_DISCOVERED, [](const JsonVariantConst& payload) {
         myCli.onDeviceDiscovered(payload);
@@ -87,6 +89,14 @@ void setup()
 
     eventBus.subscribe(EventType::DEVICE_TELEMETRY, [](const JsonVariantConst& payload) {
         myCli.onDeviceTelemetry(payload);
+    });
+
+    // main events
+
+    eventBus.subscribe(EventType::IRRIGATION_STATE_CHANGED, [](const JsonVariantConst& payload) {
+        const char* action = payload["action"] | "unknown";
+        const char* reason = payload["reason"] | "";
+        LOG_I("MAIN", "Irrigation event: %s %s", action, reason);
     });
 }
 

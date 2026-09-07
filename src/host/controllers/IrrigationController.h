@@ -146,11 +146,6 @@ private:
                 LOG_I(TAG, "Cooldown finished (%u ms elapsed). Returning to IDLE.", (unsigned)elapsedCooldown);
                 currentState = IrrigationState::IDLE;
             }
-            else
-            {
-                LOG_D(TAG, "In COOLDOWN mode. Remaining: %u ms", 
-                      (unsigned)(config.cooldownDurationMs - elapsedCooldown));
-            }
             break;
         }
 
@@ -203,7 +198,7 @@ private:
         if (reason) doc["reason"] = reason;
         doc["state"] = static_cast<int>(currentState);
         
-        eventBus.publish(EventType::DEVICE_UPDATED, doc.as<JsonVariantConst>());
+        eventBus.publish(EventType::IRRIGATION_STATE_CHANGED, doc.as<JsonVariantConst>());
     }
 
 public:
