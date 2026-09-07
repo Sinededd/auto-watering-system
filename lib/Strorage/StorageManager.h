@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include <string>
 #include <Preferences.h>
 #include <type_traits>
 #include <optional>

@@ -27,7 +27,7 @@ struct PacketHeader
 struct PairRequestPacket
 {
     PacketHeader packet = {PacketType::PAIR_REQUEST};
-    char type[12];
+    char type[20];
 
 };
 

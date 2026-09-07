@@ -9,7 +9,7 @@
     "metrics": [
       {
         "type": 1,
-        "label": "Влажность почвы",
+        "label": "soil_moisture",
         "unit": "%",
         "minVal": 0.0,
         "maxVal": 100.0,

@@ -12,6 +12,8 @@
 #include "controllers/HostController.h"
 #include "adapters/WebAdapter.h"
 #include "registry/DeviceRegistry.h"
+#include "controllers/IrrigationController.h"
+#include "commands/SensorCommand.h"
 
 
 static const char *TAG = "MAIN";
@@ -30,8 +32,13 @@ EventBus eventBus;
 StorageManager storage;
 DeviceRegistry deviceRegistry(storage);
 
+SensorAggregator sensorAggregator(deviceRegistry);
+IrrigationThresholds thresholds;
+
 DeviceController deviceController(deviceRegistry, netMgr, eventBus);
-HostController hostController(deviceRegistry, eventBus, netMgr);
+HostController hostController(deviceRegistry, eventBus, netMgr, sensorAggregator);
+
+IrrigationController irrigationController(thresholds, sensorAggregator, valve, eventBus);
 
 
 void setup()
@@ -47,13 +54,22 @@ void setup()
     webAdapter.begin();
     server.begin();
 
+    Thresholds moistureThresh;
+    moistureThresh.minThreshold = 30.0f;
+    moistureThresh.maxThreshold = 70.0f;
+    moistureThresh.mode = SensorPickMode::AVERAGE;
+    
+
     deviceController.begin();
     hostController.begin();
+    irrigationController.begin();
+    irrigationController.setTimings(60000, 60000); // 1мин / 1 мин
     
     cmdRegistry.registerCommand(std::make_unique<HelpCommand>(cmdRegistry));
     cmdRegistry.registerCommand(std::make_unique<LedCommand>(&led));
     cmdRegistry.registerCommand(std::make_unique<ValveCommand>(&valve));
     cmdRegistry.registerCommand(std::make_unique<DeviceCommand>(deviceController, deviceRegistry));
+    cmdRegistry.registerCommand(std::make_unique<SensorCommand>(sensorAggregator));
  
     eventBus.subscribe(EventType::DEVICE_DISCOVERED, [](const JsonVariantConst& payload) {
         myCli.onDeviceDiscovered(payload);
@@ -88,5 +104,6 @@ void loop()
     deviceController.update();
     myCli.update();
     deviceController.update();
+    irrigationController.update();
     vTaskDelay(pdMS_TO_TICKS(10));
 }
