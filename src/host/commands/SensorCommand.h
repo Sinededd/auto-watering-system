@@ -46,7 +46,7 @@ public:
 
         if (action == "list" || action == "get")
         {
-            auto allData = aggregator.getAllsensorData();
+            auto allData = aggregator.getAllSensorData();
             JsonObject rootObj = outData["sensors"].to<JsonObject>();
 
             for (const auto &[type, devMap] : allData)

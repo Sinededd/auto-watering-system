@@ -2,8 +2,10 @@
 #include <Arduino.h>
 #include <EspNowManager.h>
 #include <vector>
+#include <unordered_map>
 #include <MacAddress.h>
 #include "host/registry/DeviceRegistry.h"
+#include "host/controllers/IrrigationThresholds.h"
 #include <host/events/EventBus.h>
 
 enum class PairResult
@@ -24,6 +26,7 @@ private:
     DeviceRegistry &deviceRegistry;
     EspNowManager &network;
     EventBus &eventBus;
+    IrrigationThresholds &thresholds;
 
     std::unordered_map<MacAddress, DeviceHeader> pendingPairs;
 
@@ -33,9 +36,37 @@ private:
         int8_t rssi = info->rx_ctrl->rssi;
         LOG_I(TAG, "Received settings report from %s", mac.toArduinoString().c_str());
 
-        deviceRegistry.processSettingsReport(mac, rssi, pkt);
+        char devType[12] = "";
+        auto it = pendingPairs.find(mac);
+        if (it != pendingPairs.end())
+        {
+            strlcpy(devType, it->second.type, sizeof(devType));
+            pendingPairs.erase(it);
+        }
+        else
+        {
+            LOG_W(TAG, "Device %s not found in pendingPairs", mac.toString().c_str());
+        }
+
+        // 1. Сохраняем устройство в реестре
+        deviceRegistry.processSettingsReport(mac, rssi, pkt, devType);
         deviceRegistry.setDeviceStatus(mac, DeviceStatus::ACTIVE);
 
+        // 2. АВТО-СОЗДАНИЕ ПОРОГОВ ДЛЯ МЕТРИК
+        std::string primaryKey = strlen(devType) > 0 ? devType : "";
+        uint8_t count = (pkt.interface.metricCount > 3) ? 3 : pkt.interface.metricCount;
+        
+        for (uint8_t i = 0; i < count; ++i)
+        {
+            const auto &metric = pkt.interface.metrics[i];
+            
+            // Ключом порога служит либо тип устройства, либо метка метрики (label)
+            std::string key = primaryKey.empty() ? metric.label : primaryKey;
+            thresholds.autoCreateFromMetric(key, metric);
+        }
+
+        // 3. Отправляем подтверждение перевода в рабочий режим
+        Device *dev = deviceRegistry.findDevice(mac);
         StartWorkModePacket workPkt;
         if (network.send(mac, workPkt))
         {
@@ -46,8 +77,7 @@ private:
             LOG_E(TAG, "Error send work packet to %s", mac.toArduinoString().c_str());
         }
 
-        pendingPairs.erase(mac);
-        Device *dev = deviceRegistry.findDevice(mac);
+        // 4. Оповещаем систему
         if (dev != nullptr)
         {
             JsonDocument doc = deviceHeaderToJson(dev->header);
@@ -56,8 +86,12 @@ private:
     }
 
 public:
-    explicit DeviceController(DeviceRegistry &deviceRegistry, EspNowManager &net, EventBus &eventBus)
-        : deviceRegistry(deviceRegistry), network(net), eventBus(eventBus) {}
+    explicit DeviceController(
+        DeviceRegistry &deviceRegistry, 
+        EspNowManager &net, 
+        EventBus &eventBus,
+        IrrigationThresholds &thresholds
+    ) : deviceRegistry(deviceRegistry), network(net), eventBus(eventBus), thresholds(thresholds) {}
 
     void begin()
     {
@@ -90,24 +124,10 @@ public:
             it->second.status = DeviceStatus::CONNECTING;
             it->second.lastSeenMs = millis();
 
-            if (network.addPeer(mac))
-            {
-                LOG_D(TAG, "Success add peer with %s", mac.toString().c_str());
-            }
-            else
-            {
-                LOG_E(TAG, "Error add peer with %s", mac.toString().c_str());
-            }
+            network.addPeer(mac);
 
             PairAcceptPacket acceptPkt;
-            if (network.send(mac, acceptPkt))
-            {
-                LOG_D(TAG, "Success send accept packet to %s", mac.toString().c_str());
-            }
-            else
-            {
-                LOG_E(TAG, "Error send accept packet to %s", mac.toString().c_str());
-            }
+            network.send(mac, acceptPkt);
 
             return PairResult::SUCCESS;
         }
@@ -119,13 +139,7 @@ public:
     {
         pendingPairs.erase(mac);
         network.removePeer(mac);
-
-        bool removed = deviceRegistry.removeDevice(mac);
-
-        if (removed)
-            LOG_I(TAG, "Device %s disconnected and removed", mac.toArduinoString().c_str());
-
-        return removed;
+        return deviceRegistry.removeDevice(mac);
     }
 
     void update()
@@ -136,18 +150,12 @@ public:
         {
             if (now - it->second.lastSeenMs > PAIR_TIMEOUT_MS)
             {
-                if (it->second.status == DeviceStatus::UNPAIRED)
+                if (it->second.status != DeviceStatus::UNPAIRED)
                 {
-                    LOG_I(TAG, "Device lost: %s", it->second.mac.toArduinoString().c_str());
-                }
-                else
-                {
-                    LOG_W(TAG, "Pairing timeout for device: %s", it->second.mac.toArduinoString().c_str());
                     JsonDocument doc = deviceHeaderToJson(it->second);
                     doc["error"] = "Таймаут получения настроек";
                     eventBus.publish(EventType::DEVICE_UPDATED, doc.as<JsonVariantConst>());
                 }
-
                 it = pendingPairs.erase(it);
             }
             else
@@ -175,25 +183,17 @@ public:
         DeviceHeader device;
         device.mac = mac;
         device.status = DeviceStatus::UNPAIRED;
-        std::strncpy(device.type, packet.type, sizeof(device.type) - 1);
-        device.type[sizeof(device.type) - 1] = '\0';
+        strlcpy(device.type, packet.type, sizeof(device.type));
         device.sigLevel = info->rx_ctrl->rssi;
         device.lastSeenMs = millis();
 
         pendingPairs[mac] = device;
 
-        LOG_I(TAG, "New device found nearby: %s (%s)",
-              device.mac.toArduinoString().c_str(),
-              device.type);
-
         JsonDocument doc = deviceHeaderToJson(device);
         eventBus.publish(EventType::DEVICE_DISCOVERED, doc.as<JsonVariantConst>());
     }
 
-    const std::unordered_map<MacAddress, DeviceHeader> &getPendingPairs() const
-    {
-        return pendingPairs;
-    }
+    const std::unordered_map<MacAddress, DeviceHeader> &getPendingPairs() const { return pendingPairs; }
 
     static String resultToString(PairResult res)
     {

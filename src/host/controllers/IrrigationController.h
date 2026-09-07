@@ -65,7 +65,7 @@ private:
         }
 
         // 2. ДИНАМИЧЕСКИЙ ОПРОС: Получаем все типы датчиков, присутствующие в памяти
-        auto activeSensorData = aggregator.getAllsensorData();
+        auto activeSensorData = aggregator.getAllSensorData();
 
         bool anyNeedsWatering = false;
         bool allTargetsReached = true;
@@ -109,7 +109,6 @@ private:
         // 3. Защита: Если ни по одному из отслеживаемых датчиков нет свежих данных
         if (!hasAnyMonitoredData)
         {
-            LOG_W(TAG, "No fresh data for any configured sensor types. Safety shutdown!");
             if (valve.isOpen())
             {
                 stopWatering("no_sensor_data");

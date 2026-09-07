@@ -84,7 +84,7 @@ void PairingState::update(DeviceContext &ctx)
             lastBroadcastMs = now;
 
             PairRequestPacket req;
-            char type[] = "soil_moisture";
+            char type[] = "soil_mstr";
             memcpy(req.type, type, sizeof(type));
             ctx.getNet().send(BROADCAST_MAC, req);
         }

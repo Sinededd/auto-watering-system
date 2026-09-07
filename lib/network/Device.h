@@ -19,7 +19,7 @@ struct DeviceHeader
 {
     MacAddress mac;
     DeviceStatus status;
-    char type[20];
+    char type[12];
     int8_t sigLevel;
     uint32_t lastSeenMs = 0;
 };

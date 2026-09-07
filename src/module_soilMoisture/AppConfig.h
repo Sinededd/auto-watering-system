@@ -56,7 +56,7 @@ private:
         cfg.interface.metricCount = 1;
         auto &m = cfg.interface.metrics[0];
         m.type = 1;
-        safeStrncpy(m.label, "soil_moisture", sizeof(m.label));
+        safeStrncpy(m.label, "soil_mstr", sizeof(m.label));
         safeStrncpy(m.unit, "%", sizeof(m.unit));
         m.minVal = 0.0f;
         m.maxVal = 100.0f;

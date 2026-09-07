@@ -177,5 +177,5 @@ public:
         }
     }
 
-    std::unordered_map<std::string, std::unordered_map<MacAddress, SensorReading>> getAllsensorData() { return sensorData; }
+    std::unordered_map<std::string, std::unordered_map<MacAddress, SensorReading>> getAllSensorData() { return sensorData; }
 };

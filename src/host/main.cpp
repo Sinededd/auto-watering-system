@@ -3,18 +3,23 @@
 #include <Led.h>
 #include <EspNowManager.h>
 #include <StorageManager.h>
-#include "commands/CommandRegistry.h"
-#include "adapters/CliAdapter.h"
-#include "commands/LedCommand.h"
-#include "commands/ValveCommand.h"
-#include "commands/HelpCommand.h"
-#include "commands/DeviceCommand.h"
-#include "controllers/HostController.h"
-#include "adapters/WebAdapter.h"
-#include "registry/DeviceRegistry.h"
-#include "controllers/IrrigationController.h"
-#include "commands/SensorCommand.h"
 
+#include "registry/DeviceRegistry.h"
+#include "controllers/DeviceController.h"
+#include "controllers/HostController.h"
+#include "controllers/IrrigationController.h"
+#include "controllers/IrrigationThresholds.h"
+#include "controllers/SensorAggregator.h"
+
+#include "commands/CommandRegistry.h"
+#include "commands/DeviceCommand.h"
+#include "commands/HelpCommand.h"
+#include "commands/LedCommand.h"
+#include "commands/SensorCommand.h"
+#include "commands/ValveCommand.h"
+
+#include "adapters/CliAdapter.h"
+#include "adapters/WebAdapter.h"
 
 static const char *TAG = "MAIN";
 
@@ -35,11 +40,9 @@ DeviceRegistry deviceRegistry(storage);
 SensorAggregator sensorAggregator(deviceRegistry);
 IrrigationThresholds thresholds;
 
-DeviceController deviceController(deviceRegistry, netMgr, eventBus);
+DeviceController deviceController(deviceRegistry, netMgr, eventBus, thresholds);
 HostController hostController(deviceRegistry, eventBus, netMgr, sensorAggregator);
-
 IrrigationController irrigationController(thresholds, sensorAggregator, valve, eventBus);
-
 
 void setup()
 {
@@ -51,19 +54,16 @@ void setup()
     deviceRegistry.begin();
     netMgr.begin();
 
+    // Загружаем пороги из NVS в оперативную память
+    thresholds.begin();
+
     webAdapter.begin();
     server.begin();
-
-    Thresholds moistureThresh;
-    moistureThresh.minThreshold = 30.0f;
-    moistureThresh.maxThreshold = 70.0f;
-    moistureThresh.mode = SensorPickMode::AVERAGE;
-    
 
     deviceController.begin();
     hostController.begin();
     irrigationController.begin();
-    irrigationController.setTimings(60000, 60000); // 1мин / 1 мин
+    irrigationController.setTimings(60000, 60000); // 1 мин полив / 1 мин пауза
     
     cmdRegistry.registerCommand(std::make_unique<HelpCommand>(cmdRegistry));
     cmdRegistry.registerCommand(std::make_unique<LedCommand>(&led));
@@ -73,10 +73,12 @@ void setup()
  
     eventBus.subscribe(EventType::DEVICE_DISCOVERED, [](const JsonVariantConst& payload) {
         myCli.onDeviceDiscovered(payload);
+        webAdapter.onDeviceDiscovered(payload);
     });
 
     eventBus.subscribe(EventType::DEVICE_LOST, [](const JsonVariantConst& payload) {
         myCli.onDeviceLost(payload);
+        webAdapter.onDeviceLost(payload);
     });
 
     eventBus.subscribe(EventType::DEVICE_UPDATED, [](const JsonVariantConst& payload) {
@@ -86,15 +88,6 @@ void setup()
     eventBus.subscribe(EventType::DEVICE_TELEMETRY, [](const JsonVariantConst& payload) {
         myCli.onDeviceTelemetry(payload);
     });
-
-    eventBus.subscribe(EventType::DEVICE_DISCOVERED, [](const JsonVariantConst& payload) {
-        webAdapter.onDeviceDiscovered(payload);
-    });
-
-    eventBus.subscribe(EventType::DEVICE_LOST, [](const JsonVariantConst& payload) {
-        webAdapter.onDeviceLost(payload);
-    });
-
 }
 
 void loop()
@@ -103,7 +96,7 @@ void loop()
     valve.update();
     deviceController.update();
     myCli.update();
-    deviceController.update();
     irrigationController.update();
+    
     vTaskDelay(pdMS_TO_TICKS(10));
 }

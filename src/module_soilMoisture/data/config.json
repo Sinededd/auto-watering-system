@@ -9,7 +9,7 @@
     "metrics": [
       {
         "type": 1,
-        "label": "soil_moisture",
+        "label": "soil_mstr",
         "unit": "%",
         "minVal": 0.0,
         "maxVal": 100.0,

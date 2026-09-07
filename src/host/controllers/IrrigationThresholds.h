@@ -4,6 +4,8 @@
 #include <string>
 #include <optional>
 #include <StorageManager.h>
+#include <Logger.h>
+#include <Device.h>
 
 enum class SensorPickMode : uint8_t
 {
@@ -14,9 +16,9 @@ enum class SensorPickMode : uint8_t
 
 struct Thresholds
 {
-    SensorPickMode mode;
-    float minThreshold;
-    float maxThreshold;
+    SensorPickMode mode = SensorPickMode::AVERAGE;
+    float minThreshold = 0.0f;
+    float maxThreshold = 0.0f;
 };
 
 class IrrigationThresholds
@@ -30,7 +32,6 @@ private:
 public:
     IrrigationThresholds() : storage("irr_thresh") {}
 
-    /// @brief Load all thresholds from NVS into RAM. 
     void begin()
     {
         LOG_I(TAG, "Loading all thresholds into RAM...");
@@ -54,19 +55,13 @@ public:
         auto it = thresholdsOfSensorTypes.find(type);
         if (it != thresholdsOfSensorTypes.end())
         {
-            LOG_D(TAG, "Get thresholds for %s from RAM memory", type.c_str());
             return it->second;
         }
 
         std::optional<Thresholds> thresholds = storage.load<Thresholds>(type.c_str());
         if (thresholds.has_value())
         {
-            LOG_D(TAG, "Get thresholds for %s from NVS memory", type.c_str());
             thresholdsOfSensorTypes[type] = thresholds.value();
-        }
-        else
-        {
-            LOG_E(TAG, "Error getting thresholds for %s", type.c_str());
         }
 
         return thresholds;
@@ -74,16 +69,38 @@ public:
 
     bool addThreshold(const std::string &type, const Thresholds &thresholds)
     {
-        LOG_D(TAG, "Saving thresholds for %s: min (%f), max(%f), mode(%d)", 
+        LOG_I(TAG, "Saving thresholds for %s: min (%.2f), max (%.2f), mode (%d)", 
               type.c_str(), thresholds.minThreshold, thresholds.maxThreshold, static_cast<int>(thresholds.mode));
         
         thresholdsOfSensorTypes[type] = thresholds;
         return storage.save(type.c_str(), thresholds);
     }
 
+    /// Автоматическое создание порога на основе границ метрики (minVal...maxVal)
+    void autoCreateFromMetric(const std::string &key, const MetricDescriptor &metric)
+    {
+        if (getThresholds(key).has_value())
+        {
+            LOG_D(TAG, "Thresholds for '%s' already exist. Skipping auto-creation.", key.c_str());
+            return;
+        }
+
+        float range = metric.maxVal - metric.minVal;
+        
+        // Значения по умолчанию: полив включается при 30% и выключается при 70% диапазона
+        Thresholds autoThresh;
+        autoThresh.mode = SensorPickMode::AVERAGE;
+        autoThresh.minThreshold = metric.minVal + (range * 0.30f);
+        autoThresh.maxThreshold = metric.minVal + (range * 0.70f);
+
+        LOG_I(TAG, "Auto-generating threshold for '%s' (Range: %.1f..%.1f) -> Min: %.2f, Max: %.2f",
+              key.c_str(), metric.minVal, metric.maxVal, autoThresh.minThreshold, autoThresh.maxThreshold);
+
+        addThreshold(key, autoThresh);
+    }
+
     bool removeThreshold(const std::string &type)
     {
-        LOG_D(TAG, "Removing thresholds for %s", type.c_str());
         thresholdsOfSensorTypes.erase(type);
         return storage.remove(type.c_str());
     }
