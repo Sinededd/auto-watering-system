@@ -21,6 +21,7 @@
 #include "adapters/CliAdapter.h"
 #include "adapters/WebAdapter.h"
 #include "commands/ThresholdCommand.h"
+#include "commands/IrrigationCommand.h"
 
 static const char *TAG = "MAIN";
 
@@ -72,6 +73,7 @@ void setup()
     cmdRegistry.registerCommand(std::make_unique<DeviceCommand>(deviceController, deviceRegistry));
     cmdRegistry.registerCommand(std::make_unique<SensorCommand>(sensorAggregator));
     cmdRegistry.registerCommand(std::make_unique<ThresholdCommand>(thresholds));
+    cmdRegistry.registerCommand(std::make_unique<IrrigationCommand>(irrigationController));
  
     eventBus.subscribe(EventType::DEVICE_DISCOVERED, [](const JsonVariantConst& payload) {
         myCli.onDeviceDiscovered(payload);
