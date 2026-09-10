@@ -4,6 +4,7 @@
 #include <vector>
 #include <unordered_map>
 #include <MacAddress.h>
+#include <Packets.h>
 #include "host/registry/DeviceRegistry.h"
 #include "host/controllers/IrrigationThresholds.h"
 #include <host/events/EventBus.h>
@@ -15,6 +16,15 @@ enum class PairResult
     ALREADY_PAIRED,
     NOT_IN_BUFFER,
     SAVE_FAILED
+};
+
+struct PendingSettingsTask
+{
+    MacAddress targetMac;
+    DeviceSettings newSettings;
+    uint8_t attemptsLeft = 3;
+    uint32_t lastAttemptMs = 0;
+    static constexpr uint32_t RETRY_INTERVAL_MS = 3000; // Интервал повторов — 3 сек
 };
 
 class DeviceController
@@ -29,6 +39,7 @@ private:
     IrrigationThresholds &thresholds;
 
     std::unordered_map<MacAddress, DeviceHeader> pendingPairs;
+    std::unordered_map<MacAddress, PendingSettingsTask> pendingSettingsTasks;
 
     void handleSettingsReport(const esp_now_recv_info_t *info, const SettingsReportPacket &pkt)
     {
@@ -52,15 +63,13 @@ private:
         deviceRegistry.processSettingsReport(mac, rssi, pkt, devType);
         deviceRegistry.setDeviceStatus(mac, DeviceStatus::ACTIVE);
 
-        // 2. АВТО-СОЗДАНИЕ ПОРОГОВ ДЛЯ МЕТРИК
+        // 2. Авто-создание порогов для метрик
         std::string primaryKey = strlen(devType) > 0 ? devType : "";
         uint8_t count = (pkt.interface.metricCount > 3) ? 3 : pkt.interface.metricCount;
         
         for (uint8_t i = 0; i < count; ++i)
         {
             const auto &metric = pkt.interface.metrics[i];
-            
-            // Ключом порога служит либо тип устройства, либо метка метрики (label)
             std::string key = primaryKey.empty() ? metric.label : primaryKey;
             thresholds.autoCreateFromMetric(key, metric);
         }
@@ -85,6 +94,42 @@ private:
         }
     }
 
+    void handleSetSettingsResponse(const esp_now_recv_info_t *info, const SetSettingsResponsePacket &pkt)
+    {
+        MacAddress mac(info->src_addr);
+        auto it = pendingSettingsTasks.find(mac);
+        if (it == pendingSettingsTasks.end()) return;
+
+        if (pkt.success)
+        {
+            LOG_I(TAG, "Device %s successfully applied new settings!", mac.toArduinoString().c_str());
+
+            // Обновляем настройки в локальном реестре хоста и сохраняем в NVS
+            Device *dev = deviceRegistry.findDevice(mac);
+            if (dev)
+            {
+                dev->settings = it->second.newSettings;
+                deviceRegistry.saveDeviceToNvs(*dev);
+            }
+
+            JsonDocument doc;
+            doc["mac"] = mac.toArduinoString();
+            doc["status"] = "success";
+            eventBus.publish(EventType::SETTINGS_UPDATE_SUCCESS, doc.as<JsonVariantConst>());
+        }
+        else
+        {
+            LOG_E(TAG, "Device %s failed to save settings internally", mac.toArduinoString().c_str());
+
+            JsonDocument doc;
+            doc["mac"] = mac.toArduinoString();
+            doc["error"] = "Internal device save failure";
+            eventBus.publish(EventType::SETTINGS_UPDATE_FAILED, doc.as<JsonVariantConst>());
+        }
+
+        pendingSettingsTasks.erase(it);
+    }
+
 public:
     explicit DeviceController(
         DeviceRegistry &deviceRegistry, 
@@ -107,6 +152,13 @@ public:
             [this](const esp_now_recv_info_t *info, const SettingsReportPacket &pkt)
             {
                 this->handleSettingsReport(info, pkt);
+            });
+
+        network.onPacket<SetSettingsResponsePacket>(
+            PacketType::SET_SETTINGS_RESPONSE,
+            [this](const esp_now_recv_info_t *info, const SetSettingsResponsePacket &pkt)
+            {
+                this->handleSetSettingsResponse(info, pkt);
             });
     }
 
@@ -135,9 +187,39 @@ public:
         return PairResult::NOT_IN_BUFFER;
     }
 
+   bool requestSettingsUpdate(const MacAddress &mac, const DeviceSettings &newSettings)
+    {
+        Device *dev = deviceRegistry.findDevice(mac);
+        if (!dev)
+        {
+            LOG_W(TAG, "Cannot update settings: device %s not found in registry", mac.toArduinoString().c_str());
+            return false;
+        }
+
+        if (pendingSettingsTasks.find(mac) != pendingSettingsTasks.end())
+        {
+            LOG_W(TAG, "Settings update task already pending for %s", mac.toArduinoString().c_str());
+            return false;
+        }
+
+        network.addPeer(mac);
+
+        PendingSettingsTask task;
+        task.targetMac = mac;
+        task.newSettings = newSettings;
+        task.attemptsLeft = 3;
+        task.lastAttemptMs = 0;
+
+        pendingSettingsTasks[mac] = task;
+
+        LOG_I(TAG, "Created settings update task for %s. Awaiting device wakeup...", mac.toArduinoString().c_str());
+        return true;
+    }
+
     bool disconnectDevice(const MacAddress &mac)
     {
         pendingPairs.erase(mac);
+        pendingSettingsTasks.erase(mac);
         network.removePeer(mac);
         return deviceRegistry.removeDevice(mac);
     }
@@ -146,6 +228,7 @@ public:
     {
         uint32_t now = millis();
 
+        // 1. Очистка устаревших запросов спаривания
         for (auto it = pendingPairs.begin(); it != pendingPairs.end();)
         {
             if (now - it->second.lastSeenMs > PAIR_TIMEOUT_MS)
@@ -157,6 +240,46 @@ public:
                     eventBus.publish(EventType::DEVICE_UPDATED, doc.as<JsonVariantConst>());
                 }
                 it = pendingPairs.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+
+        // 2. Обработка отправки запросов смены настроек (3 попытки с интервалом)
+        for (auto it = pendingSettingsTasks.begin(); it != pendingSettingsTasks.end();)
+        {
+            auto &task = it->second;
+
+            if (now - task.lastAttemptMs >= PendingSettingsTask::RETRY_INTERVAL_MS)
+            {
+                if (task.attemptsLeft > 0)
+                {
+                    task.attemptsLeft--;
+                    task.lastAttemptMs = now;
+
+                    SetSettingsRequestPacket reqPkt;
+                    reqPkt.settings = task.newSettings;
+
+                    LOG_I(TAG, "Sending SET_SETTINGS_REQUEST to %s (Attempts left: %u)", 
+                          task.targetMac.toArduinoString().c_str(), task.attemptsLeft);
+
+                    network.send(task.targetMac, reqPkt);
+                    ++it;
+                }
+                else
+                {
+                    // Все 3 попытки исчерпаны
+                    LOG_E(TAG, "Failed to update settings for %s: Sensor timeout", task.targetMac.toArduinoString().c_str());
+
+                    JsonDocument doc;
+                    doc["mac"] = task.targetMac.toArduinoString();
+                    doc["error"] = "Timeout: device did not respond";
+                    eventBus.publish(EventType::SETTINGS_UPDATE_FAILED, doc.as<JsonVariantConst>());
+
+                    it = pendingSettingsTasks.erase(it);
+                }
             }
             else
             {

@@ -14,7 +14,9 @@ enum class PacketType : uint8_t
     PAIR_ACCEPT,
     SETTINGS_REPORT,
     START_WORK_MODE,
-    TELEMETRY_REPORT
+    TELEMETRY_REPORT,
+    SET_SETTINGS_REQUEST,  // Host -> Sensor
+    SET_SETTINGS_RESPONSE  // Sensor -> Host
 };
 
 struct PacketHeader
@@ -45,6 +47,12 @@ struct TelemetryPacket
     float values[3];
 };
 
+struct SetSettingsResponsePacket
+{
+    PacketHeader packet = {PacketType::SET_SETTINGS_RESPONSE};
+    bool success;
+};
+
 // host packets
 
 struct PairAcceptPacket
@@ -56,6 +64,12 @@ struct PairAcceptPacket
 struct StartWorkModePacket
 {
     PacketHeader packet = {PacketType::START_WORK_MODE};
+};
+
+struct SetSettingsRequestPacket
+{
+    PacketHeader packet = {PacketType::SET_SETTINGS_REQUEST};
+    DeviceSettings settings;
 };
 
 #pragma pack(pop)
