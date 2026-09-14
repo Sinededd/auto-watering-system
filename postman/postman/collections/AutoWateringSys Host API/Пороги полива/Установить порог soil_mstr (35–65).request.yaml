@@ -1,0 +1,19 @@
+$kind: http-request
+url: "{{host}}/api/command"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "cmd": "threshold",
+      "payload": {
+        "action": "set",
+        "type": "soil_mstr",
+        "min": 35,
+        "max": 65,
+        "mode": "avg"
+      }
+    }
+order: 2000

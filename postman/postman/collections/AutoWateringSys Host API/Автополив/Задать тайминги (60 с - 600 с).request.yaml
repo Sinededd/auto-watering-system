@@ -1,0 +1,18 @@
+$kind: http-request
+name: Задать тайминги (60 с / 600 с)
+url: "{{host}}/api/command"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "cmd": "irrigation",
+      "payload": {
+        "action": "timing",
+        "duration": 60,
+        "cooldown": 600
+      }
+    }
+order: 6000

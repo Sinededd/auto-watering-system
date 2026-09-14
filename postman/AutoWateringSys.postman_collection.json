@@ -1,0 +1,178 @@
+{
+  "info": {
+    "_postman_id": "6a907faf-8bbf-4426-96a5-cc0816ee5a76",
+    "name": "AutoWateringSys Host API",
+    "description": "Управление ESP32-хостом автополива через POST /api/command.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "host",
+      "value": "http://192.168.4.1",
+      "type": "string"
+    },
+    {
+      "key": "device_mac",
+      "value": "24:6F:28:AB:CD:12",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Справка",
+      "item": [
+        {
+          "name": "Все доступные команды",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"help\",\n  \"payload\": {}\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{host}}/api/command"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Автополив",
+      "item": [
+        {
+          "name": "Статус",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"irrigation\",\n  \"payload\": { \"action\": \"status\" }\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{host}}/api/command"
+          }
+        },
+        {
+          "name": "Включить автополив",
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"irrigation\",\n  \"payload\": { \"action\": \"enable\" }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command"
+          }
+        },
+        {
+          "name": "Выключить автополив",
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"irrigation\",\n  \"payload\": { \"action\": \"disable\" }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command"
+          }
+        },
+        {
+          "name": "Запустить полив принудительно",
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"irrigation\",\n  \"payload\": { \"action\": \"start\" }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command"
+          }
+        },
+        {
+          "name": "Остановить полив",
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"irrigation\",\n  \"payload\": { \"action\": \"stop\" }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command"
+          }
+        },
+        {
+          "name": "Задать тайминги (60 с / 600 с)",
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"irrigation\",\n  \"payload\": {\n    \"action\": \"timing\",\n    \"duration\": 60,\n    \"cooldown\": 600\n  }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Клапан",
+      "item": [
+        {
+          "name": "Состояние клапана",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"valve\",\n  \"payload\": {}\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command" }
+        },
+        {
+          "name": "Открыть клапан",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"valve\",\n  \"payload\": { \"action\": \"open\" }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command" }
+        },
+        {
+          "name": "Закрыть клапан",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"valve\",\n  \"payload\": { \"action\": \"close\" }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command" }
+        }
+      ]
+    },
+    {
+      "name": "Датчики",
+      "item": [
+        {
+          "name": "Список актуальных показаний",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"sensor\",\n  \"payload\": { \"action\": \"list\" }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command" }
+        },
+        {
+          "name": "Средняя влажность soil_mstr",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"sensor\",\n  \"payload\": {\n    \"action\": \"calc\",\n    \"type\": \"soil_mstr\",\n    \"mode\": \"avg\",\n    \"metricIndex\": 0\n  }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command" }
+        },
+        {
+          "name": "Очистить устаревшие показания",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"sensor\",\n  \"payload\": { \"action\": \"cleanup\" }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command" }
+        }
+      ]
+    },
+    {
+      "name": "Пороги полива",
+      "item": [
+        {
+          "name": "Список порогов",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"threshold\",\n  \"payload\": { \"action\": \"list\" }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command" }
+        },
+        {
+          "name": "Установить порог soil_mstr (35–65)",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"threshold\",\n  \"payload\": {\n    \"action\": \"set\",\n    \"type\": \"soil_mstr\",\n    \"min\": 35,\n    \"max\": 65,\n    \"mode\": \"avg\"\n  }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command" }
+        },
+        {
+          "name": "Удалить порог soil_mstr",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"threshold\",\n  \"payload\": { \"action\": \"remove\", \"type\": \"soil_mstr\" }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command" }
+        }
+      ]
+    },
+    {
+      "name": "Устройства",
+      "item": [
+        {
+          "name": "Список устройств и ожидающих сопряжения",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"device\",\n  \"payload\": { \"action\": \"list\", \"filter\": \"all\" }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command" }
+        },
+        {
+          "name": "Подключить устройство",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"device\",\n  \"payload\": { \"action\": \"connect\", \"mac\": \"{{device_mac}}\" }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command" }
+        },
+        {
+          "name": "Получить настройки устройства",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"device\",\n  \"payload\": { \"action\": \"get_settings\", \"mac\": \"{{device_mac}}\" }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command" }
+        },
+        {
+          "name": "Изменить настройки устройства",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"device\",\n  \"payload\": {\n    \"action\": \"set_settings\",\n    \"mac\": \"{{device_mac}}\",\n    \"timeToSleepSec\": 60,\n    \"wifiPower\": 34,\n    \"maxSkippedBoots\": 3\n  }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command" }
+        },
+        {
+          "name": "Отключить и удалить устройство",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"device\",\n  \"payload\": { \"action\": \"disconnect\", \"mac\": \"{{device_mac}}\" }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command" }
+        }
+      ]
+    },
+    {
+      "name": "Индикатор LED",
+      "item": [
+        {
+          "name": "Включить LED",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"led\",\n  \"payload\": { \"action\": \"on\" }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command" }
+        },
+        {
+          "name": "Выключить LED",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"led\",\n  \"payload\": { \"action\": \"off\" }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command" }
+        },
+        {
+          "name": "Быстро мигнуть 3 раза",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cmd\": \"led\",\n  \"payload\": { \"action\": \"fast\", \"count\": 3 }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{host}}/api/command" }
+        }
+      ]
+    }
+  ]
+}

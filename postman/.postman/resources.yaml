@@ -1,0 +1,11 @@
+# Use this workspace to collaborate
+workspace:
+  id: d2f03c44-e217-45ed-8ee6-facf50342b5c
+
+localResources:
+  collections:
+    - ../AutoWateringSys.postman_collection.json
+
+cloudResources:
+  collections:
+    ../postman/collections/AutoWateringSys Host API: f833bc93-9dae-4f31-993e-ec250eb52c4f

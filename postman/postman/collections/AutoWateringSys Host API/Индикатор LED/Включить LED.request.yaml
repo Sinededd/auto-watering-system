@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{host}}/api/command"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "cmd": "led",
+      "payload": { "action": "on" }
+    }
+order: 1000

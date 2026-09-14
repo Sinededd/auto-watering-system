@@ -1,0 +1,14 @@
+$kind: http-request
+name: Список устройств и ожидающих сопряжения
+url: "{{host}}/api/command"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "cmd": "device",
+      "payload": { "action": "list", "filter": "all" }
+    }
+order: 1000

@@ -1,0 +1,5 @@
+$kind: collection
+description: Управление ESP32-хостом автополива через POST /api/command.
+variables:
+  host: http://192.168.4.1
+  device_mac: 24:6F:28:AB:CD:12

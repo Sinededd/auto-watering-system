@@ -1,0 +1,19 @@
+$kind: http-request
+url: "{{host}}/api/command"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "cmd": "device",
+      "payload": {
+        "action": "set_settings",
+        "mac": "{{device_mac}}",
+        "timeToSleepSec": 60,
+        "wifiPower": 34,
+        "maxSkippedBoots": 3
+      }
+    }
+order: 4000

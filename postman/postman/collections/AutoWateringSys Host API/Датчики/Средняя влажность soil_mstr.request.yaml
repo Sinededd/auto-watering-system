@@ -1,0 +1,18 @@
+$kind: http-request
+url: "{{host}}/api/command"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "cmd": "sensor",
+      "payload": {
+        "action": "calc",
+        "type": "soil_mstr",
+        "mode": "avg",
+        "metricIndex": 0
+      }
+    }
+order: 2000
