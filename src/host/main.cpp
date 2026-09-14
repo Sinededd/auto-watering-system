@@ -3,6 +3,7 @@
 #include <Led.h>
 #include <EspNowManager.h>
 #include <StorageManager.h>
+#include <WiFi.h>
 
 #include "registry/DeviceRegistry.h"
 #include "controllers/DeviceController.h"
@@ -10,6 +11,7 @@
 #include "controllers/IrrigationController.h"
 #include "controllers/IrrigationThresholds.h"
 #include "controllers/SensorAggregator.h"
+#include "controllers/CalibrationController.h"
 
 #include "commands/CommandRegistry.h"
 #include "commands/DeviceCommand.h"
@@ -22,6 +24,7 @@
 #include "adapters/WebAdapter.h"
 #include "commands/ThresholdCommand.h"
 #include "commands/IrrigationCommand.h"
+#include "commands/CalibrationCommand.h"
 
 static const char *TAG = "MAIN";
 
@@ -45,6 +48,7 @@ IrrigationThresholds thresholds;
 DeviceController deviceController(deviceRegistry, netMgr, eventBus, thresholds);
 HostController hostController(deviceRegistry, eventBus, netMgr, sensorAggregator);
 IrrigationController irrigationController(thresholds, sensorAggregator, valve, eventBus);
+CalibrationController calibrationController(deviceRegistry, netMgr, eventBus);
 
 void setup()
 {
@@ -54,6 +58,22 @@ void setup()
     led.begin();
     valve.begin();
     deviceRegistry.begin();
+
+    WiFi.mode(WIFI_MODE_AP);
+    if (!WiFi.softAP(
+            Config::Network::AP_SSID,
+            Config::Network::AP_PASSWORD,
+            Config::Network::AP_CHANNEL))
+    {
+        LOG_E(TAG, "Failed to start Wi-Fi access point");
+    }
+    else
+    {
+        LOG_I(TAG, "Wi-Fi AP started: %s, IP: %s",
+              Config::Network::AP_SSID,
+              WiFi.softAPIP().toString().c_str());
+    }
+
     netMgr.begin();
 
     // Загружаем пороги из NVS в оперативную память
@@ -65,6 +85,7 @@ void setup()
     deviceController.begin();
     hostController.begin();
     irrigationController.begin();
+    calibrationController.begin();
     irrigationController.setTimings(60000, 60000); // 1 мин полив / 1 мин пауза
     
     cmdRegistry.registerCommand(std::make_unique<HelpCommand>(cmdRegistry));
@@ -74,6 +95,7 @@ void setup()
     cmdRegistry.registerCommand(std::make_unique<SensorCommand>(sensorAggregator));
     cmdRegistry.registerCommand(std::make_unique<ThresholdCommand>(thresholds));
     cmdRegistry.registerCommand(std::make_unique<IrrigationCommand>(irrigationController));
+    cmdRegistry.registerCommand(std::make_unique<CalibrationCommand>(calibrationController));
  
     eventBus.subscribe(EventType::DEVICE_DISCOVERED, [](const JsonVariantConst& payload) {
         myCli.onDeviceDiscovered(payload);
@@ -93,6 +115,10 @@ void setup()
         myCli.onDeviceTelemetry(payload);
     });
 
+    eventBus.subscribe(EventType::CALIBRATION_SAMPLE, [](const JsonVariantConst& payload) {
+        webAdapter.onCalibrationSample(payload);
+    });
+
     // main events
 
     eventBus.subscribe(EventType::IRRIGATION_STATE_CHANGED, [](const JsonVariantConst& payload) {
@@ -109,6 +135,7 @@ void loop()
     deviceController.update();
     myCli.update();
     irrigationController.update();
+    calibrationController.update();
     
     vTaskDelay(pdMS_TO_TICKS(10));
 }

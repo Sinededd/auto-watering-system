@@ -1,0 +1,17 @@
+$kind: http-request
+url: "{{host}}/api/command"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "cmd": "calibration",
+      "payload": {
+        "action": "capture",
+        "mac": "{{device_mac}}",
+        "point": "dry"
+      }
+    }
+order: 3000

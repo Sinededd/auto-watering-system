@@ -15,6 +15,12 @@ namespace Config {
         constexpr unsigned long SERIAL_BAUD_RATE = 115200;
     }
 
+    namespace Network {
+        constexpr const char *AP_SSID = "AutoWateringHost";
+        constexpr const char *AP_PASSWORD = "waterplants";
+        constexpr uint8_t AP_CHANNEL = 1;
+    }
+
     // --- Default settings and limits ---
     namespace Defaults {
         constexpr unsigned long VALVE_MAX_WATERING_DURATION_MS = 300000; // 5 minutes

@@ -86,4 +86,9 @@ public:
     {
         sendSseEvent("device_lost", payload);
     }
+
+    void onCalibrationSample(const JsonVariantConst &payload)
+    {
+        sendSseEvent("calibration_sample", payload);
+    }
 };
