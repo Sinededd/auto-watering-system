@@ -18,6 +18,7 @@ private:
                "  device connect <MAC> — подключить устройство\n"
                "  device disconnect <MAC> — отключить и удалить устройство\n"
                "  device get_settings <MAC> — просмотреть текущие настройки устройства\n"
+               "  device details <MAC> — полная информация об устройстве\n"
                "  device set_settings <MAC> <timeToSleepSec> [wifiPower] [maxSkippedBoots] — изменить настройки";
     }
 
@@ -27,7 +28,7 @@ public:
         : deviceController(deviceController), deviceRegistry(deviceRegistry) {}
 
     String getName() const override { return "device"; }
-    String getDescription() const override { return "device [help|list|connect|disconnect|get_settings|set_settings] — Управление устройствами"; }
+    String getDescription() const override { return "device [help|list|connect|disconnect|get_settings|details|set_settings] — Управление устройствами"; }
 
     CommandResult execute(const JsonVariantConst &payload, JsonDocument &outData) override
     {
@@ -109,6 +110,19 @@ public:
                          "  Макс. пропусков перезагрузки: " + String(dev->settings.maxSkippedBoots);
 
             return {true, msg};
+        }
+
+        if (action == "details")
+        {
+            String macStr = payload["mac"] | "";
+            MacAddress mac;
+            if (!MacAddress::fromString(macStr.c_str(), mac))
+                return {false, "Неверно указан MAC-адрес"};
+            const Device *dev = deviceRegistry.findDevice(mac);
+            if (!dev)
+                return {false, "Устройство не найдено"};
+            deviceToJson(*dev, outData["device"].to<JsonObject>());
+            return {true, "OK"};
         }
 
         if (action == "set_settings" || action == "set_config")

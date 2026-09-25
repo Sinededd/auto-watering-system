@@ -4,6 +4,7 @@
 #include <EspNowManager.h>
 #include <StorageManager.h>
 #include <WiFi.h>
+#include <LittleFS.h>
 
 #include "registry/DeviceRegistry.h"
 #include "controllers/DeviceController.h"
@@ -79,6 +80,8 @@ void setup()
     // Загружаем пороги из NVS в оперативную память
     thresholds.begin();
 
+    if (!LittleFS.begin(false))
+        LOG_E(TAG, "LittleFS mount failed; upload the host filesystem image");
     webAdapter.begin();
     server.begin();
 
@@ -86,7 +89,6 @@ void setup()
     hostController.begin();
     irrigationController.begin();
     calibrationController.begin();
-    irrigationController.setTimings(60000, 60000); // 1 мин полив / 1 мин пауза
     
     cmdRegistry.registerCommand(std::make_unique<HelpCommand>(cmdRegistry));
     cmdRegistry.registerCommand(std::make_unique<LedCommand>(&led));
@@ -109,10 +111,12 @@ void setup()
 
     eventBus.subscribe(EventType::DEVICE_UPDATED, [](const JsonVariantConst& payload) {
         myCli.onDeviceUpdate(payload);
+        webAdapter.onDeviceUpdated(payload);
     });
 
     eventBus.subscribe(EventType::DEVICE_TELEMETRY, [](const JsonVariantConst& payload) {
         myCli.onDeviceTelemetry(payload);
+        webAdapter.onDeviceTelemetry(payload);
     });
 
     eventBus.subscribe(EventType::CALIBRATION_SAMPLE, [](const JsonVariantConst& payload) {
@@ -122,9 +126,17 @@ void setup()
     // main events
 
     eventBus.subscribe(EventType::IRRIGATION_STATE_CHANGED, [](const JsonVariantConst& payload) {
+        webAdapter.onIrrigationStateChanged(payload);
         const char* action = payload["action"] | "unknown";
         const char* reason = payload["reason"] | "";
         LOG_I("MAIN", "Irrigation event: %s %s", action, reason);
+    });
+
+    eventBus.subscribe(EventType::SETTINGS_UPDATE_SUCCESS, [](const JsonVariantConst& payload) {
+        webAdapter.onSettingsUpdateSuccess(payload);
+    });
+    eventBus.subscribe(EventType::SETTINGS_UPDATE_FAILED, [](const JsonVariantConst& payload) {
+        webAdapter.onSettingsUpdateFailed(payload);
     });
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
+#include <LittleFS.h>
 #include "host/commands/CommandRegistry.h"
 #include "host/events/EventBus.h"
 
@@ -64,6 +65,7 @@ public:
 
     void begin()
     {
+        server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
         server.addHandler(&events);
 
         server.on(
@@ -91,4 +93,10 @@ public:
     {
         sendSseEvent("calibration_sample", payload);
     }
+
+    void onDeviceUpdated(const JsonVariantConst &payload) { sendSseEvent("device_updated", payload); }
+    void onDeviceTelemetry(const JsonVariantConst &payload) { sendSseEvent("device_telemetry", payload); }
+    void onIrrigationStateChanged(const JsonVariantConst &payload) { sendSseEvent("irrigation_state_changed", payload); }
+    void onSettingsUpdateSuccess(const JsonVariantConst &payload) { sendSseEvent("settings_update_success", payload); }
+    void onSettingsUpdateFailed(const JsonVariantConst &payload) { sendSseEvent("settings_update_failed", payload); }
 };
