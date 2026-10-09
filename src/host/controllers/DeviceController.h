@@ -59,12 +59,18 @@ private:
             LOG_W(TAG, "Device %s not found in pendingPairs", mac.toString().c_str());
         }
 
+        // The pairing request can expire before the settings report arrives.
+        // Recover the sensor type from its first metric in that case.
+        if (devType[0] == '\0' && pkt.interface.metricCount > 0)
+            strlcpy(devType, pkt.interface.metrics[0].label, sizeof(devType));
+
         // 1. Сохраняем устройство в реестре
         deviceRegistry.processSettingsReport(mac, rssi, pkt, devType);
         deviceRegistry.setDeviceStatus(mac, DeviceStatus::ACTIVE);
 
         // 2. Авто-создание порогов для метрик
-        std::string primaryKey = strlen(devType) > 0 ? devType : "";
+        Device *dev = deviceRegistry.findDevice(mac);
+        std::string primaryKey = dev && dev->header.type[0] ? dev->header.type : "";
         uint8_t count = (pkt.interface.metricCount > 3) ? 3 : pkt.interface.metricCount;
         
         for (uint8_t i = 0; i < count; ++i)
@@ -75,7 +81,6 @@ private:
         }
 
         // 3. Отправляем подтверждение перевода в рабочий режим
-        Device *dev = deviceRegistry.findDevice(mac);
         StartWorkModePacket workPkt;
         if (network.send(mac, workPkt))
         {

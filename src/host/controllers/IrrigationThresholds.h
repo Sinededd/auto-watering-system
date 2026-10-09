@@ -52,23 +52,22 @@ public:
 
     std::optional<Thresholds> getThresholds(const std::string &type)
     {
+        if (type.empty())
+            return std::nullopt;
+
         auto it = thresholdsOfSensorTypes.find(type);
         if (it != thresholdsOfSensorTypes.end())
         {
             return it->second;
         }
-
-        std::optional<Thresholds> thresholds = storage.load<Thresholds>(type.c_str());
-        if (thresholds.has_value())
-        {
-            thresholdsOfSensorTypes[type] = thresholds.value();
-        }
-
-        return thresholds;
+        // begin() loads NVS once; a missing type must not trigger a flash lookup
+        // on every irrigation evaluation.
+        return std::nullopt;
     }
 
     bool addThreshold(const std::string &type, const Thresholds &thresholds)
     {
+        if (type.empty()) return false;
         LOG_I(TAG, "Saving thresholds for %s: min (%.2f), max (%.2f), mode (%d)", 
               type.c_str(), thresholds.minThreshold, thresholds.maxThreshold, static_cast<int>(thresholds.mode));
         
@@ -79,6 +78,7 @@ public:
     /// Автоматическое создание порога на основе границ метрики (minVal...maxVal)
     void autoCreateFromMetric(const std::string &key, const MetricDescriptor &metric)
     {
+        if (key.empty()) return;
         if (getThresholds(key).has_value())
         {
             LOG_D(TAG, "Thresholds for '%s' already exist. Skipping auto-creation.", key.c_str());
@@ -101,6 +101,7 @@ public:
 
     bool removeThreshold(const std::string &type)
     {
+        if (type.empty()) return false;
         thresholdsOfSensorTypes.erase(type);
         return storage.remove(type.c_str());
     }

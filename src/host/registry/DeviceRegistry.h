@@ -73,6 +73,16 @@ public:
             if (devOpt.has_value())
             {
                 devices.push_back(devOpt.value());
+                Device &loaded = devices.back();
+                if (loaded.header.type[0] == '\0' && loaded.interface.metricCount > 0 &&
+                    loaded.interface.metrics[0].label[0] != '\0')
+                {
+                    strlcpy(loaded.header.type, loaded.interface.metrics[0].label,
+                            sizeof(loaded.header.type));
+                    saveDeviceToNvs(loaded);
+                    LOG_I(TAG, "Restored type '%s' for device %s",
+                          loaded.header.type, loaded.header.mac.toArduinoString().c_str());
+                }
                 LOG_I(TAG, "Loaded device %s from NVS", index.macs[i].toArduinoString().c_str());
             }
         }

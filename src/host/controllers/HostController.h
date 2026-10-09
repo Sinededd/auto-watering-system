@@ -35,7 +35,8 @@ private:
 
             eventBus.publish(EventType::DEVICE_TELEMETRY, doc.as<JsonVariantConst>());
 
-            sensorAggregator.addReading(dev->header.type, srcMac, pkt);
+            if (dev->header.type[0] != '\0')
+                sensorAggregator.addReading(dev->header.type, srcMac, pkt);
         }
     }
 
